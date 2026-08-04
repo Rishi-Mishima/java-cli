@@ -4,6 +4,8 @@ import com.fasterxml.jackson.databind.JsonNode;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Map;
 
 public class ToolRegistry {
@@ -72,7 +74,28 @@ public class ToolRegistry {
                     }
                 }
         ));
+
+    // write_file工具
+        tools.put("write_file", new Tool(
+                "write_file",
+                "写入文件内容",
+                createParameters(
+                        // 这个工具需要path和content两个参数
+                        new Param("path", "string", "文件路径", true),
+                        new Param("content", "string", "文件内容", true)
+                ), args -> {
+            //  取参数
+            String path = args.get("path");
+            String content = args.get("content");
+            //Path.of(path) 这个文件的位置
+            // Files.writeString(...) 把字符串写到文件里
+            Files.writeString(Path.of(path), content);
+            return "文件已写入: " + path;
+        }
+        ));
     }
+
+
     // 负责执行,以后所有工具都会实现这个接口。
     public interface ToolExecutor {
 
