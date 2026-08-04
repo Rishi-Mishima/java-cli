@@ -4,12 +4,14 @@ import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.tool.ToolRegistry;
 
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 
 public class Agent {
 
 
+    private static final int MAX_RETRIES = 3;
     private final GLMClient llmClient;
     //保存所有工具。
     private final ToolRegistry toolRegistry;
@@ -51,15 +53,30 @@ public class Agent {
 
         // 初始化迭代次数
         int iteration = 0;
+        int retryCount = 0;
         //开始Agent循环, 小于Max
         while (iteration < MAX_ITERATIONS) {
             iteration++;
+            ChatResponse response = null;
 
-            // 调用 LLM: 发送当前完整聊天记录, 以及可以使用的工具定义
-            ChatResponse response = llmClient.chat(
-                    conversationHistory,
-                    toolRegistry.getToolDefinitions()
-            );
+            try {
+                // 调用 LLM: 发送当前完整聊天记录, 以及可以使用的工具定义
+                response = llmClient.chat(
+                        conversationHistory,
+                        toolRegistry.getToolDefinitions()
+                );
+            } catch (IOException e) {
+                // 网络错误，可以重试
+                if (retryCount < MAX_RETRIES) {
+                    retryCount++;
+                    continue;
+                }
+                return "网络错误: " + e.getMessage();
+            }
+            catch (Exception e) {
+                // 其他错误，返回错误信息
+                return "执行错误: " + e.getMessage();
+            }
 
             // 如果有工具调用 - 检查大模型返回的响应中，是否包含工具调用请求。
             if (response.hasToolCalls()) {
