@@ -1,6 +1,9 @@
 package com.mycliagent.tool;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.deser.impl.CreatorCandidate;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -95,6 +98,24 @@ public class ToolRegistry {
         ));
     }
 
+// 创建参数定义
+private JsonNode createParameters(Param... params) {
+    ObjectNode parameters = mapper.createObjectNode();
+    parameters.put("type", "object");
+    ObjectNode properties = parameters.putObject("properties");
+    ArrayNode required = parameters.putArray("required");
+
+    for (CreatorCandidate.Param param : params) {
+        ObjectNode prop = properties.putObject(param.name());
+        prop.put("type", param.type());
+        prop.put("description", param.description());
+        if (param.required()) {
+            required.add(param.name());
+        }
+    }
+
+    return parameters;
+}
 
     // 负责执行,以后所有工具都会实现这个接口。
     public interface ToolExecutor {
