@@ -112,4 +112,12 @@ public class Agent {
 
         return "达到最大迭代次数限制";
     }
+
+    public void clearHistory() {
+        // 清除用户对话
+        conversationHistory.clear();
+        //保留Agent的身份和行为规则
+        conversationHistory.add(Message.system(SYSTEM_PROMPT));
+
+    }
 }
