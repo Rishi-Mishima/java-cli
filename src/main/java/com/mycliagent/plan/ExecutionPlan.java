@@ -23,7 +23,7 @@ public class ExecutionPlan {
         CANCELLED     // 被取消
     }
 
-    public ExecutionPlan(String id, String goal, Map<String, Task> tasks, List<String> executionOrder) {
+    public ExecutionPlan(String id, String goal) {
         this.id = id;
         this.goal = goal;
         this.tasks = new LinkedHashMap<>(); // 保持插入顺序
@@ -43,8 +43,12 @@ public class ExecutionPlan {
     public void setSummary(String summary) { this.summary = summary; }
     public void setStatus(PlanStatus status) { this.status = status; }
 
+    public void addTask(Task task) {
+        tasks.put(task.getId(), task);
+    }
+
     // 获取任务
-    public Task getTasks(String id) {
+    public Task getTask(String id) {
         return tasks.get(id);
     }
 
@@ -52,6 +56,8 @@ public class ExecutionPlan {
     public Collection<Task> getAllTasks() {
         return tasks.values();
     }
+
+
 
     /**
      * 获取根任务（没有依赖的任务）

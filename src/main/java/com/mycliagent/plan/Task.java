@@ -1,5 +1,6 @@
 package com.mycliagent.plan;
 
+
 import java.util.*;
 
 /**
@@ -76,12 +77,25 @@ public class Task {
     }
 
 
+
     // Setters
     public void setStatus(TaskStatus status) { this.status = status; }
     public void setResult(String result) { this.result = result; }
     public void setError(String error) { this.error = error; }
 
-    public Task(String id, String description, TaskType type, List<String> dependencies, List<String> dependents) {
+    public void addDependent(String taskId) {
+        if (!dependents.contains(taskId)) {
+            dependents.add(taskId);
+        }
+    }
+
+    public void addDependency(String taskId) {
+        if (!dependencies.contains(taskId)) {
+            dependencies.add(taskId);
+        }
+    }
+
+    public Task(String id, String description, TaskType type) {
         this.id = id;
         this.description = description;
         this.type = type;
