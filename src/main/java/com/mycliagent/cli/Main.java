@@ -3,6 +3,8 @@ package com.mycliagent.cli;
 import com.mycliagent.agent.Agent;
 
 import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
 import java.util.Scanner;
 
 public class Main {
@@ -52,6 +54,21 @@ public class Main {
 
         // 再尝试从环境变量读取
         return System.getenv("GLM_API_KEY");
+    }
+
+    private static String readApiKeyFromFile(File envFile) {
+        try {
+            for (String line : Files.readAllLines(envFile.toPath())) {
+                String trimmed = line.trim();
+                if (trimmed.startsWith("GLM_API_KEY=")) {
+                    String value = trimmed.substring("GLM_API_KEY=".length()).trim();
+                    return value.replaceAll("^['\"]|['\"]$", "");
+                }
+            }
+        } catch (IOException e) {
+            System.err.println("读取 .env 失败: " + e.getMessage());
+        }
+        return null;
     }
 
     private static void printBanner() {

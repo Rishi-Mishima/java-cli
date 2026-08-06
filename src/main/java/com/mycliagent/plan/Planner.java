@@ -2,10 +2,9 @@ package com.mycliagent.plan;
 import com.mycliagent.plan.Task;
 
 import com.fasterxml.jackson.databind.JsonNode;
-import com.mycliagent.llm.GLMClient;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.LlmClient.ChatResponse;
-import com.mycliagent.plan.Task.TaskType;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -17,9 +16,11 @@ import java.util.Map;
 public class Planner {
     // 面向接口,而不是具体实现
     private final LlmClient llmClient;
+    private final ObjectMapper mapper;
 
     public Planner(LlmClient llmClient) {
         this.llmClient = llmClient;
+        this.mapper = new ObjectMapper();
     }
 
 

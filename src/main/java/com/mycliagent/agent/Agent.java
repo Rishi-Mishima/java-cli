@@ -2,6 +2,7 @@ package com.mycliagent.agent;
 
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
+import com.mycliagent.llm.LlmClient.ToolCall;
 import com.mycliagent.tool.ToolRegistry;
 
 import java.io.IOException;
@@ -16,7 +17,7 @@ public class Agent {
     //保存所有工具。
     private final ToolRegistry toolRegistry;
     //  保存所有聊天记录
-    private final List<Message> conversationHistory;
+    private final List<LlmClient.Message> conversationHistory;
     //限制 Agent 最多循环 10 次。 - 是一种保险措施,不然可能永远停不下来
     private static final int MAX_ITERATIONS = 10;
 
@@ -49,7 +50,7 @@ public class Agent {
 
     public String run(String userInput) {
         // 添加用户输入 - 加入聊天历史
-        conversationHistory.add(Message.user(userInput));
+        conversationHistory.add(LlmClient.Message.user(userInput));
 
         // 初始化迭代次数
         int iteration = 0;
@@ -118,7 +119,7 @@ public class Agent {
         // 清除用户对话
         conversationHistory.clear();
         //保留Agent的身份和行为规则
-        conversationHistory.add(Message.system(SYSTEM_PROMPT));
+        conversationHistory.add(LlmClient.Message.system(SYSTEM_PROMPT));
 
     }
 }

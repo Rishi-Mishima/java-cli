@@ -11,6 +11,7 @@ import okhttp3.RequestBody;
 import okhttp3.Response;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 
@@ -138,7 +139,10 @@ public class GLMClient implements LlmClient {
 
             //  读取响应
             // 服务器返回的响应最初是 HTTP body。 这行把它读取成字符串
-            String responseBody = response.body().string();
+            String responseBody = response.body() == null ? "" : response.body().string();
+            if (!response.isSuccessful()) {
+                throw new IOException("GLM API 请求失败: HTTP " + response.code() + "\n" + responseBody);
+            }
             //把 JSON 字符串解析成 JSON 树。
             // 可以root.get("choices") or root.path("choices").get(0).path("message")
             JsonNode root = mapper.readTree(responseBody);
@@ -155,14 +159,33 @@ public class GLMClient implements LlmClient {
                     .path("content")
                     .asText("");
 
+            List<ToolCall> toolCalls = new ArrayList<>();
+            JsonNode toolCallsNode = messageNode.path("tool_calls");
+            if (toolCallsNode.isArray()) {
+                for (JsonNode toolCallNode : toolCallsNode) {
+                    JsonNode functionNode = toolCallNode.path("function");
+                    JsonNode argumentsNode = functionNode.path("arguments");
+                    String arguments = argumentsNode.isTextual()
+                            ? argumentsNode.asText()
+                            : argumentsNode.toString();
+
+                    toolCalls.add(new ToolCall(
+                            toolCallNode.path("id").asText(),
+                            new FunctionCall(
+                                    functionNode.path("name").asText(),
+                                    arguments
+                            )
+                    ));
+                }
+            }
+
             return new ChatResponse(
                     content,
-                    List.of()
+                    toolCalls
             );
         }
 
     }
 }
-
 
 

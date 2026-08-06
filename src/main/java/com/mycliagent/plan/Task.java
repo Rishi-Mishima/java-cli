@@ -99,6 +99,7 @@ public class Task {
         this.id = id;
         this.description = description;
         this.type = type;
+        this.status = TaskStatus.PENDING;
         this.dependencies = new ArrayList<>();
         this.dependents = new ArrayList<>();
     }
