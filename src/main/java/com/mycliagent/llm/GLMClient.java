@@ -145,7 +145,22 @@ public class GLMClient implements LlmClient {
 
             // 提取消息内容、工具调用、token 使用等信息
             // ...
+
+            JsonNode messageNode = root
+                    .path("choices")
+                    .path(0)
+                    .path("message");
+
+            String content = messageNode
+                    .path("content")
+                    .asText("");
+            
+            return new ChatResponse(
+                    content,
+                    List.of()
+            );
         }
+
     }
 }
 

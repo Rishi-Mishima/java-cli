@@ -12,6 +12,9 @@ public interface LlmClient {
 
     String getProviderName();
 
+    ChatResponse chat(List<Message> messages, List<Tool> tools)
+            throws IOException;
+
     public record ChatResponse(
             String content,
             List<ToolCall> toolCalls
