@@ -12,12 +12,18 @@ public interface LlmClient {
 
     String getProviderName();
 
+    public record ChatResponse(
+            String content,
+            List<ToolCall> toolCalls
+    ) {
+    }
+
     public record Message(
             String role,
             String content,
-            List<ToolCall> toolcalls,
+            List<ToolCall> toolCalls,
             String toolCallId
-    ){
+    ) {
         public static Message system(String content) {
             return new Message("system", content, null, null);
         }
@@ -33,111 +39,16 @@ public interface LlmClient {
         public static Message tool(String toolCallId, String content) {
             return new Message("tool", content, null, toolCallId);
         }
+
     }
 
-    public record Tool(String name, String description, JsonNode parameters) {}
+    public record Tool(String name, String description, JsonNode parameters) {
+    }
 
-    public ChatResponse chat(List<Message> messages, List<Tool> tools)
-            throws IOException {
-        // 第一阶段: 构建请求体
-        // 创建了一个空的JSON对象
-        ObjectNode requestBody = mapper.createObjectNode();
-        //给 JSON 添加一个字段:   {"model" : "glm-5,1"}
-        requestBody.put("model", MODEL);
 
-        // 第二阶段: 把消息历史加入Json
-        // 添加消息历史
-        //这行在请求 JSON 中创建一个数组 {"model": "glm-5.1", "messages": []}
-        ArrayNode messagesArray = requestBody.putArray("messages");
-        // 遍历JAVA的所有消息
-        for (Message msg : messages) {
-            // 为每条消息创建 JSON 对象 {"messages": [{"role": "user", }]}
-            ObjectNode msgNode = messagesArray.addObject();
-            msgNode.put("role", msg.role());
-            msgNode.put("content", msg.content());
+}
 
-            // 序列化assistant 工具的调用: 如果有工具调用，序列化 tool_calls
-            //只有当这条消息确实包含工具调用时，才添加 tool_calls : toolCalss 不为Null, 并且toolCalls 里面至少有一个元素
-            if (msg.toolCalls() != null && !msg.toolCalls().isEmpty()) {
-                //创建tool_calls数组
-                ArrayNode toolCallsArray = msgNode.putArray("tool_calls");
-                然后遍历每一次工具调用
-                for (ToolCall tc : msg.toolCalls()) {
-                    //创建单个工具调用对象
-                    ObjectNode tcNode = toolCallsArray.addObject();
-                    tcNode.put("id", tc.id());
-                    // function 固定写死, 因为这里API规定
-                    tcNode.put("type", "function");
-                    // 创建function 对象  {"function": {}}
-                    ObjectNode functionNode = tcNode.putObject("function");
-                    functionNode.put("name", tc.function().name());
-                    functionNode.put("arguments", tc.function().arguments());
-                }
-            }
 
-            // 如果是工具结果，添加 tool_call_id
-            if (msg.toolCallId() != null) {
-                msgNode.put("tool_call_id", msg.toolCallId());
-            }
-        }
-
-        // 第三阶段: 添加工具定义
-        // 如果当前确实提供了工具，才往请求 JSON 里加入 tools
-        if (tools != null && !tools.isEmpty()) {
-            // 创建工具数组
-            ArrayNode toolsArray = requestBody.putArray("tools");
-            // 遍历所有工具：
-            for (Tool tool : tools) {
-                //添加一个空工具对象：
-                ObjectNode toolNode = toolsArray.addObject();
-                toolNode.put("type", "function");
-                ObjectNode functionNode = toolNode.putObject("function");
-                functionNode.put("name", tool.name());
-                functionNode.put("description", tool.description());
-                // parameters用set(), 因为是jsonNode
-                functionNode.set("parameters", tool.parameters());
-            }
-        }
-
-        // 第四阶段: 创建HTTP请求体
-        // 发送 HTTP 请求
-        // 这里把Jackson的JSONrequestBody转换成了字符串, 后包装成 OkHttp 的：RequestBody
-        // 同时告诉服务器, 这是一段JSON数据, 也就是 Content-Type: application/json
-        RequestBody body = RequestBody.create(
-                requestBody.toString(),
-                MediaType.parse("application/json")
-        );
-
-        // 第五阶段: 创建HTTP请求
-        // 使用 Builder 模式创建请求。
-        Request request = new Request.Builder()
-                // 设置地址
-                .url(API_URL)
-                //设置认证请求头
-                .header("Authorization", "Bearer " + apiKey)
-                //设置为 POST 请求
-                .post(body)
-                // builder 模式构建
-                .build();
-
-        // 解析响应
-        // 发送请求
-        // `httpClient.newCall(request)` 根据请求创建一次HTTP调用
-        // .execute() 同步发送请求
-        // 使用try(), 因为 Response 使用完需要关闭。
-        try (Response response = httpClient.newCall(request).execute()) {
-
-            //  读取响应
-            // 服务器返回的响应最初是 HTTP body。 这行把它读取成字符串
-            String responseBody = response.body().string();
-            //把 JSON 字符串解析成 JSON 树。
-            // 可以root.get("choices") or root.path("choices").get(0).path("message")
-            JsonNode root = mapper.readTree(responseBody);
-
-            // 提取消息内容、工具调用、token 使用等信息
-            // ...
-        }
-    }}
 
 
 
