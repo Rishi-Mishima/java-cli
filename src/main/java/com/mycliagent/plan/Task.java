@@ -90,7 +90,7 @@ public class Task {
     }
 
 
-    /** 生命周期 **/ 
+    /** 生命周期 **/
     public void markStarted() {
         this.status = TaskStatus.RUNNING;
         this.startTime = System.currentTimeMillis();
@@ -107,5 +107,31 @@ public class Task {
         this.error = error;
         this.endTime = System.currentTimeMillis();
     }
+
+    /**
+     * 获取执行耗时（毫秒）
+     */
+    public long getDuration() {
+        if (startTime == 0) return 0;
+        if (endTime == 0) return System.currentTimeMillis() - startTime;
+        return endTime - startTime;
+    }
+
+    //依赖关系 管理
+    public boolean isExecutable(Map<String, Task>allTasks){
+        // 只有Task是Pending, 等待执行的时候, 才能执行, 剩下都不可
+        if (status != TaskStatus.PENDING) return false;
+        //遍历所有依赖
+        for(String depId: dependencies){
+            Task dep = allTasks.get(depId);
+            if(dep == null || dep.getStatus() != TaskStatus.COMPLETED){
+                return false;
+            }
+        }
+        // 可以执行
+        return true;
+    }
+
+
 
 }
