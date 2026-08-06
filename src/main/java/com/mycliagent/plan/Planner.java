@@ -179,8 +179,62 @@ public class Planner {
             }
         }
 
+        // 计算执行顺序
+        if (!plan.computeExecutionOrder()) {
+            throw new IOException("计划中存在循环依赖");
+        }
+
         return plan;
     }
 
+    /**
+     * 解析任务类型
+     */
+    private Task.TaskType parseTaskType(String typeStr) {
+        return switch (typeStr.toUpperCase()) {
+            case "FILE_READ" -> Task.TaskType.FILE_READ;
+            case "FILE_WRITE" -> Task.TaskType.FILE_WRITE;
+            case "COMMAND" -> Task.TaskType.COMMAND;
+            case "ANALYSIS" -> Task.TaskType.ANALYSIS;
+            case "VERIFICATION" -> Task.TaskType.VERIFICATION;
+            default -> Task.TaskType.ANALYSIS;
+        };
+    }
 
+    /**
+     * 生成计划ID
+     */
+    private String generatePlanId() {
+        return "plan_" + System.currentTimeMillis();
+    }
+
+
+    /**
+     * 根据执行结果重新规划
+     */
+
+    public ExecutionPlan replan(ExecutionPlan failedPlan, String failureReason) throws IOException {
+       // out.println("🔄 重新规划，原因: " + failureReason + "\n");
+
+        // 创建一个“字符串拼接容器
+        StringBuilder context = new StringBuilder();
+        context.append("原任务: ").append(failedPlan.getGoal()).append("\n");
+        context.append("失败原因: ").append(failureReason).append("\n");
+        context.append("已完成的任务:\n");
+
+        //遍历计划里的所有任务
+        for (Task task : failedPlan.getAllTasks()) {
+            //只处理已经完成的任务 - 新计划就不需要再读取一次。
+            if (task.getStatus() == Task.TaskStatus.COMPLETED) {
+                // 把已完成任务加入 context
+                context.append("- ").append(task.getId())
+                        .append(": ").append(task.getDescription())
+                        .append("\n");
+            }
+        }
+
+        context.append("\n请制定新的执行计划，避开之前的问题。");
+
+        return createPlan(context.toString());
+    }
 }
