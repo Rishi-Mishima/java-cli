@@ -154,7 +154,7 @@ public class GLMClient implements LlmClient {
             String content = messageNode
                     .path("content")
                     .asText("");
-            
+
             return new ChatResponse(
                     content,
                     List.of()
