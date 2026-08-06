@@ -57,7 +57,7 @@ public class Agent {
         //开始Agent循环, 小于Max
         while (iteration < MAX_ITERATIONS) {
             iteration++;
-            ChatResponse response = null;
+            LlmClient.ChatResponse response = null;
 
 
             try {
@@ -83,7 +83,7 @@ public class Agent {
             if (response.hasToolCalls()) {
                 // 记录助手消息
                 conversationHistory.add(
-                        Message.assistant(response.content(), response.toolCalls())
+                        LlmClient.Message.assistant(response.content(), response.toolCalls())
                 );
 
                 // 遍历执行每个工具调用 - 因为一条AI恢复可能包含多个工具调用
@@ -97,7 +97,7 @@ public class Agent {
                     // 记录工具结果
                     conversationHistory.add(
                             // toolCall.id()表示工具调用的唯一ID
-                            Message.tool(toolCall.id(), result)
+                            LlmClient.Message.tool(toolCall.id(), result)
                     );
                 }
                 // 继续循环，让 LLM 根据结果继续思考
@@ -105,7 +105,7 @@ public class Agent {
             } else {
                 // 没有工具调用，任务完成
                 conversationHistory.add(
-                        Message.assistant(response.content())
+                        LlmClient.Message.assistant(response.content())
                 );
                 return response.content();
             }
