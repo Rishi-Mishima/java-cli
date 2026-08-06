@@ -8,6 +8,7 @@ import com.mycliagent.plan.Task;
 import com.mycliagent.tool.ToolRegistry;
 
 import java.io.IOException;
+import java.util.List;
 
 public class PlanExecuteAgent {
     private final LlmClient llmClient;
@@ -21,8 +22,16 @@ public class PlanExecuteAgent {
     }
 
     public String run(String userInput) throws IOException {
-        // 1. 创建执行计划
-        ExecutionPlan plan = planner.createPlan(userInput);
+        ExecutionPlan plan;
+        if (shouldPlan(userInput)) {
+
+            // 复杂任务
+            plan = planner.createPlan(userInput);
+        } else {
+
+            // 简单任务
+            return executeDirectly(userInput);
+        }
 
         // 2. 计算执行顺序
         boolean success = plan.computeExecutionOrder();
@@ -45,6 +54,18 @@ public class PlanExecuteAgent {
 
         // 4. 返回结果
         return buildResult(plan);
+    }
+
+    private String executeDirectly(String userInput) throws IOException {
+        List<LlmClient.Message> messages = List.of(
+                LlmClient.Message.system("你是一个有帮助的助手，请直接完成用户的简单任务。"),
+                LlmClient.Message.user(userInput)
+        );
+
+        LlmClient.ChatResponse response =
+                llmClient.chat(messages, null);
+
+        return response.content();
     }
 
     private String buildResult(ExecutionPlan plan) {
@@ -78,4 +99,13 @@ public class PlanExecuteAgent {
     }
 
 
+    private boolean shouldPlan(String input) {
+        // 包含多个动作关键词或长度超过50字符，需要规划
+        String[] keywords = {"创建", "写", "读", "执行", "然后", "接着"};
+        int actionCount = 0;
+        for (String keyword : keywords) {
+            if (input.contains(keyword)) actionCount++;
+        }
+        return actionCount >= 3 || input.length() > 50;
+    }
 }
