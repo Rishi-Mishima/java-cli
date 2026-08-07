@@ -26,13 +26,36 @@ public class LongTermMemory implements Memory {
 
     // 存储
     private static final String STORAGE_DIR = ".MyCliAgent/memory";
-    private static final String STORAGE_FILE = "long_term_memory.json";
 
+    // 1. 无参构造方法（给懒人用的默认配置）
     public LongTermMemory() {
-
-        loadFromDisk();
-
+        this(resolveStorageDir()); // 自动调用下面的带参构造方法，并传入默认文件夹路径
     }
+
+    // 2. 带参构造方法（核心逻辑）
+    public LongTermMemory(File storageDir) {
+        // 线程安全的 Map。未来多线程同时读写记忆时，不会把数据搞乱。
+        this.entries = new ConcurrentHashMap<>();
+        // 线程安全的整数计数器，初始值为 0，用来记录当前记忆总共占用了多少 Token。
+        this.tokenCounter = new AtomicInteger(0);
+        // Jackson 库提供的工具，专门用来把 Java 对象和 JSON 文本互转。
+        this.mapper = new ObjectMapper();
+        // 开启 JSON 美化排版。开启后存到磁盘上的 JSON 文件会有换行和缩进（像漂亮的代码一样），而不是挤成一团的单行文本。
+        this.mapper.enable(SerializationFeature.INDENT_OUTPUT);
+
+        // 确保存储目录存在
+        File dir = storageDir;
+        if (!dir.exists()) {
+            dir.mkdirs(); // // 如果文件夹不存在，就自动创建（包括多级父目录）
+        }
+        // // 拼接出最终的文件路径（如：.mycliagent/memory/long_term_memory.json）
+        this.storageFile = new File(dir, STORAGE_FILE);
+
+        // 启动时加载已有记忆
+        // 在准备工作做完的最后一步，立刻调用 loadFromDisk() 去硬盘里读取之前存过的 JSON 文件，把记忆加载到 entries 中。这样程序重启后，历史记忆不会丢失。
+        loadFromDisk();
+    }
+
 
     @Override
     public void store(MemoryEntry entry) {
@@ -100,4 +123,87 @@ public class LongTermMemory implements Memory {
                 .limit(limit)
                 .collect(Collectors.toList());
     }
+
+    /**
+     * 持久化到磁盘
+     */
+    private void saveToDisk() {
+        try {
+            List<Map<String, Object>> dataList = entries.values().stream()
+                    .map(this::entryToMap)
+                    .collect(Collectors.toList());
+            mapper.writeValue(storageFile, dataList);
+        } catch (IOException e) {
+            log.warn("长期记忆持久化失败: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * 从磁盘加载
+     */
+    @SuppressWarnings("unchecked")
+    private void loadFromDisk() {
+        if (!storageFile.exists()) return;
+
+        try {
+            List<Map<String, Object>> dataList = mapper.readValue(storageFile, List.class);
+            for (Map<String, Object> data : dataList) {
+                MemoryEntry entry = mapToEntry(data);
+                if (entry != null) {
+                    entries.put(entry.getId(), entry);
+                    tokenCounter.addAndGet(entry.getTokenCount());
+                }
+            }
+            log.info("加载了 {} 条长期记忆", entries.size());
+        } catch (IOException e) {
+            log.warn("加载长期记忆失败: {}", e.getMessage(), e);
+        }
+    }
+
+    private static File resolveStorageDir() {
+        String configuredDir = System.getProperty(STORAGE_DIR_PROPERTY);
+        if (configuredDir == null || configuredDir.isBlank()) {
+            configuredDir = System.getenv(STORAGE_DIR_ENV);
+        }
+        if (configuredDir != null && !configuredDir.isBlank()) {
+            return new File(configuredDir);
+        }
+        return new File(new File(System.getProperty("user.home"), ".paicli"), "memory");
+    }
+
+    private Map<String, Object> entryToMap(MemoryEntry entry) {
+        Map<String, Object> map = new LinkedHashMap<>();
+        map.put("id", entry.getId());
+        map.put("content", entry.getContent());
+        map.put("type", entry.getType().name());
+        map.put("timestamp", entry.getTimestamp().toString());
+        map.put("metadata", entry.getMetadata());
+        map.put("tokenCount", entry.getTokenCount());
+        return map;
+    }
+
+
+    @SuppressWarnings("unchecked")
+    private MemoryEntry mapToEntry(Map<String, Object> map) {
+        try {
+            String id = (String) map.get("id");
+            String content = (String) map.get("content");
+            MemoryEntry.MemoryType type = MemoryEntry.MemoryType.valueOf((String) map.get("type"));
+            Instant timestamp = null;
+            Object timestampObj = map.get("timestamp");
+            if (timestampObj instanceof String timestampValue && !timestampValue.isBlank()) {
+                timestamp = Instant.parse(timestampValue);
+            }
+            Map<String, String> metadata = new HashMap<>();
+            Object metaObj = map.get("metadata");
+            if (metaObj instanceof Map) {
+                ((Map<String, Object>) metaObj).forEach((k, v) -> metadata.put(k, String.valueOf(v)));
+            }
+            int tokenCount = map.get("tokenCount") instanceof Number n ? n.intValue() : MemoryEntry.estimateTokens(content);
+            return new MemoryEntry(id, content, type, timestamp, metadata, tokenCount);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
 }
