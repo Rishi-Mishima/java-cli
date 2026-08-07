@@ -1,6 +1,5 @@
 package com.mycliagent.memory;
 
-import java.lang.management.MemoryType;
 import java.time.Instant;
 import java.util.Map;
 
@@ -47,12 +46,13 @@ public class MemoryEntry {
         this.tokenCount = tokenCount;
     }
 
-    public enum MeoryType{
+    public enum MemoryType{
         CONVERSATION,  // 对话记忆
         FACT,          // 事实记忆（用户偏好、项目信息）
         SUMMARY,       // 摘要记忆
         TOOL_RESULT    // 工具执行结果
     }
+
 
     /**
      * 粗略估算 token 数（中文约 1.5 字/token，英文约 4 字符/token）
