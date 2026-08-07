@@ -1,7 +1,6 @@
 package com.mycliagent.memory;
 
-import java.util.LinkedHashMap;
-import java.util.List;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 public class ConversationMemory implements Memory{
@@ -28,19 +27,83 @@ public class ConversationMemory implements Memory{
         }
     }
 
-    private void evictOldest() {
-        // early return安全检查
-        if (entries.isEmpty()) return;
-
-        // 拿出所有的Key --> 从头访问 .next ---> m1
-        String oldestKey = entries.keySet().iterator().next();
-
-        // 删除 - remove() 会把被删除的 value 返回 - 刚才删掉的 MemoryEntry 有多少 token？
-        // Map<K, V> - > Map<String, MemoryEnry>
-        MemoryEntry removedEntry = entries.remove(oldestKey);
-
-        if (removedEntry != null) {
-            currentTokens.addAndGet(-removedEntry.getTokenCount());
+    @Override
+    public boolean delete(String id) {
+        MemoryEntry removed = entries.remove(id);
+        if (removed != null) {
+            currentTokens.addAndGet(-removed.getTokenCount());
+            return true;
         }
+        return false;
+    }
+
+    @Override
+    public List<MemoryEntry> getAll() {
+        return new ArrayList<>(entries.values());
+    }
+
+    @Override
+    public void clear() {
+        entries.clear();
+        currentTokens.set(0);
+        compressedSummaries.clear();
+    }
+
+    @Override
+    public int getTokenCount() {
+        return currentTokens.get();
+    }
+
+    @Override
+    public int size() {
+        return entries.size();
+    }
+
+    @Override
+    public int getMaxTokens() {
+        return maxTokens;
+    }
+
+    private void evictOldest() {
+        Iterator<Map.Entry<String, MemoryEntry>> it =
+                entries.entrySet().iterator();
+
+        if (it.hasNext()) {
+            Map.Entry<String, MemoryEntry> oldest = it.next();
+
+            it.remove();
+
+            currentTokens.addAndGet(-oldest.getValue().getTokenCount());
+
+            compressedSummaries.add(oldest.getValue());
+        }
+    }
+
+
+    /**
+     * 获取已压缩淘汰的记忆摘要
+     */
+    public List<MemoryEntry> getCompressedSummaries() {
+        // 返回值不可以修改
+        return Collections.unmodifiableList(compressedSummaries);
+    }
+
+    /**
+     * 将压缩摘要回注到记忆中（上下文压缩后调用）
+     * 把summary(压缩后的)放回Memory中
+     */
+    public void injectSummary(MemoryEntry summary) {
+        // 清空旧的压缩摘要
+        compressedSummaries.clear();
+        // 将摘要作为新条目插入
+        entries.put(summary.getId(), summary);
+        currentTokens.addAndGet(summary.getTokenCount());
+    }
+
+    /**
+     * 获取记忆使用率
+     */
+    public double getUsageRatio() {
+        return maxTokens > 0 ? (double) currentTokens.get() / maxTokens : 0;
     }
 }
