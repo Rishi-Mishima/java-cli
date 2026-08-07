@@ -2,6 +2,7 @@ package com.mycliagent.memory;
 
 import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 
 public class ConversationMemory implements Memory{
     private final LinkedHashMap<String, MemoryEntry> entries;
@@ -106,4 +107,19 @@ public class ConversationMemory implements Memory{
     public double getUsageRatio() {
         return maxTokens > 0 ? (double) currentTokens.get() / maxTokens : 0;
     }
+
+    @Override
+    public Optional<MemoryEntry> retrieve(String id) {
+        return Optional.ofNullable(entries.get(id));
+    }
+
+    @Override
+    public List<MemoryEntry> search(String query, int limit) {
+        Set<String> queryTokens = MemoryQueryTokenizer.tokenize(query);
+        return entries.values().stream()
+                .filter(entry -> MemoryQueryTokenizer.matches(entry.getContent(), queryTokens))
+                .limit(limit)
+                .collect(Collectors.toList());
+    }
+
 }

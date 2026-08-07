@@ -1,6 +1,7 @@
 package com.mycliagent.memory;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface Memory {
 
@@ -38,4 +39,13 @@ public interface Memory {
      */
     int size();
 
+    /**
+     * 根据ID检索记忆
+     */
+    Optional<MemoryEntry> retrieve(String id);
+
+    /**
+     * 搜索相关记忆
+     */
+    List<MemoryEntry> search(String query, int limit);
 }
