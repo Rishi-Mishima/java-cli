@@ -1,0 +1,190 @@
+package com.mycliagent.memory;
+
+import com.mycliagent.llm.LlmClient;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
+
+public class ContextCompressor {
+    private LlmClient llmClient;
+    private final int retainRecentRounds;
+
+    private static final String MAP_PROMPT = """
+            请将以下对话片段压缩成一段简洁的摘要，保留关键信息：
+            - 用户的需求和意图
+            - 已执行的操作和结果
+            - 做出的决策和结论
+            - 重要的技术细节
+
+            对话片段：
+            %s
+
+            请用中文输出摘要，控制在200字以内。
+            """;
+
+    private static final String REDUCE_PROMPT = """
+            请将以下多个摘要合并成一个整体摘要，保留所有关键信息。
+
+            各片段摘要：
+            %s
+
+            请用中文输出合并摘要，控制在300字以内。
+            """;
+
+    private static final String EXTRACT_FACTS_PROMPT = """
+            请从以下对话中提取“跨会话仍然成立、未来复用仍有价值”的稳定事实，格式为每行一条：
+            - 用户偏好和习惯
+            - 项目信息（名称、路径、技术栈）
+            - 重要决策和约定
+
+            只保留用户明确说明、或工具/代码库可验证的信息。
+            绝对不要提取以下内容：
+            - 当前这一轮让你执行的临时任务、步骤、todo
+            - 一次性的文件名、目录名、输出要求
+            - 模型自己的猜测、纠错、提醒、推断
+            - “用户想要/需要/让我/请你...” 这类请求句
+
+            对话内容：
+            %s
+
+            请每行一条事实，不要多余解释。
+            """;
+
+    private static final List<String> EPHEMERAL_FACT_PREFIXES = List.of(
+            "用户想", "用户要", "用户需要", "用户请求", "帮我", "让我",
+            "新建", "创建", "删除", "修改", "生成", "补充要求", "当前这一轮", "本次任务"
+    );
+
+    private static final List<String> SPECULATION_CUES = List.of(
+            "可能", "应该", "猜测", "推测", "笔误", "提醒"
+    );
+
+    private static final List<String> DURABLE_FACT_HINTS = List.of(
+            "用户偏好", "用户习惯", "喜欢", "倾向", "项目", "仓库", "路径", "技术栈",
+            "版本", "模型", "接口", "配置", "环境变量", "命令", "约定", "规则", "默认"
+    );
+
+    /**
+     * @param llmClient          LLM 客户端
+     * @param retainRecentRounds 保留最近 N 轮完整消息不压缩
+     */
+    public ContextCompressor(LlmClient llmClient, int retainRecentRounds) {
+        this.llmClient = llmClient;
+        this.retainRecentRounds = retainRecentRounds;
+    }
+
+    public String compress(ConversationMemory memory) {
+
+        // 拿到当前所有对话记忆
+        List<MemoryEntry> allEntries = memory.getAll();
+
+        if (allEntries.size() <= retainRecentRounds) {
+            return null; // 条目太少，不需要压缩
+        }
+
+        //“从哪里切开”
+        // 分割：旧消息 vs 近期消息（必须拷贝，因为后面会 clear 底层集合）
+        int splitPoint = allEntries.size() - retainRecentRounds;
+        // 取前半部分 0 - splitPoint -1 作为旧记忆
+        List<MemoryEntry> oldEntries = new ArrayList<>(allEntries.subList(0, splitPoint));
+        //取后半部分作为最近记忆。
+        List<MemoryEntry> recentEntries = new ArrayList<>(allEntries.subList(splitPoint, allEntries.size()));
+
+        // Map 阶段
+        List<String> chunkSummaries = mapPhase(oldEntries);
+
+        // Reduce 阶段
+        // 如果 Map 阶段只生成一个摘要, 那就不用再让 LLM 总结一次，直接用它。
+        // 如果有多个, 就调用reducePhase - 把多个小摘要再次合并成一个最终摘要。
+        String finalSummary = chunkSummaries.size() == 1
+                ? chunkSummaries.get(0)
+                : reducePhase(chunkSummaries);
+
+        // 清空旧记忆，注入摘要，保留近期记忆 - 把原来的 ConversationMemory 清空。
+        memory.clear();
+        //然后存进去一条新的摘要记忆
+        //这里创建了一条新的 MemoryEntry
+        memory.store(new MemoryEntry(
+                "summary-" + UUID.randomUUID().toString().substring(0, 8),
+                "[历史对话摘要] " + finalSummary,
+                MemoryEntry.MemoryType.SUMMARY, null, null,
+                MemoryEntry.estimateTokens(finalSummary)
+        ));
+        //把刚才保留下来的近期消息重新放进去。
+        for (MemoryEntry entry : recentEntries) memory.store(entry);
+
+        return finalSummary;
+    }
+
+    /**
+     * Map 阶段：将旧消息分片，每片独立摘要
+     */
+    private List<String> mapPhase(List<MemoryEntry> oldEntries) {
+        List<String> summaries = new ArrayList<>();
+        int chunkSize = 5; // 每片 5 条消息
+        List<List<MemoryEntry>> chunks = partition(oldEntries, chunkSize);
+
+        for (List<MemoryEntry> chunk : chunks) {
+            StringBuilder chunkText = new StringBuilder();
+            for (MemoryEntry entry : chunk) {
+                chunkText.append(entry.getType()).append(": ")
+                        .append(entry.getContent()).append("\n\n");
+            }
+
+            try {
+                String prompt = String.format(MAP_PROMPT, chunkText);
+                List<LlmClient.Message> messages = List.of(
+                        LlmClient.Message.system("你是一个对话摘要助手。"),
+                        LlmClient.Message.user(prompt)
+                );
+
+                LlmClient.ChatResponse response = llmClient.chat(messages, null);
+                summaries.add(response.content());
+            } catch (IOException e) {
+                System.err.println("⚠️ 摘要生成失败: " + e.getMessage());
+                // 降级：直接截取前 200 字
+                String fallback = chunkText.substring(0, Math.min(200, chunkText.length()));
+                summaries.add("[压缩] " + fallback);
+            }
+        }
+
+        return summaries;
+    }
+
+    /**
+     * Reduce 阶段：合并多个摘要
+     */
+    private String reducePhase(List<String> summaries) {
+        String joined = String.join("\n\n---\n\n", summaries);
+
+        try {
+            String prompt = String.format(REDUCE_PROMPT, joined);
+            List<LlmClient.Message> messages = List.of(
+                    LlmClient.Message.system("你是一个摘要合并助手。"),
+                    LlmClient.Message.user(prompt)
+            );
+
+            LlmClient.ChatResponse response = llmClient.chat(messages, null);
+            return response.content();
+        } catch (IOException e) {
+            System.err.println("⚠️ 摘要合并失败: " + e.getMessage());
+            // 降级：直接拼接
+            return String.join("；", summaries);
+        }
+    }
+
+    // 把一个大的 List 按固定大小切分成多个小 List。
+    private <T> List<List<T>> partition(List<T> list, int size) {
+        List<List<T>> partitions = new ArrayList<>();
+        for (int i = 0; i < list.size(); i += size) {
+            //左闭右开。
+            partitions.add(list.subList(i, Math.min(i + size, list.size())));
+        }
+        return partitions;
+    }
+
+
+
+}
