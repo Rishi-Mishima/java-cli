@@ -129,11 +129,16 @@ public class LongTermMemory implements Memory {
      */
     private void saveToDisk() {
         try {
+            // 1. 取出 entries 里所有的 MemoryEntry 对象，用 Stream 流逐个处理
             List<Map<String, Object>> dataList = entries.values().stream()
+                    // 2. 把每个 MemoryEntry 对象转成 Map<String, Object> 结构
                     .map(this::entryToMap)
+                    // 3. 收集成一个 List 列表
                     .collect(Collectors.toList());
+            // 4. 用 Jackson 库把这个 List 直接写进存储文件（自动转为 JSON 数组）
             mapper.writeValue(storageFile, dataList);
         } catch (IOException e) {
+            // 5. 如果写入失败（如磁盘满了或没有读写权限），记录警告日志，防止程序奔溃
             log.warn("长期记忆持久化失败: {}", e.getMessage(), e);
         }
     }
@@ -160,15 +165,24 @@ public class LongTermMemory implements Memory {
         }
     }
 
+    //决定 LongTermMemory 最终应该把文件存到哪个目录。
     private static File resolveStorageDir() {
+        // 优先级 1：从 Java 系统属性 (-D 参数) 获取
         String configuredDir = System.getProperty(STORAGE_DIR_PROPERTY);
         if (configuredDir == null || configuredDir.isBlank()) {
+            // 优先级 2：如果系统属性没有，再从环境变量获取
             configuredDir = System.getenv(STORAGE_DIR_ENV);
         }
+
+        // 如果通过上述两种方式拿到了有效路径，直接使用该路径
         if (configuredDir != null && !configuredDir.isBlank()) {
             return new File(configuredDir);
         }
-        return new File(new File(System.getProperty("user.home"), ".paicli"), "memory");
+
+        // 优先级 3：保底默认路径（用户家目录下的 .paicli/memory）
+        // 在 Linux/Mac 下相当于：~/.paicli/memory
+        // 在 Windows 下相当于：C:\Users\你的用户名\.paicli\memory
+        return new File(new File(System.getProperty("user.home"), ".mycliagent"), "memory");
     }
 
     private Map<String, Object> entryToMap(MemoryEntry entry) {
