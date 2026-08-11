@@ -6,6 +6,7 @@ import org.slf4j.LoggerFactory;
 
 
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -24,8 +25,24 @@ public class MemoryManager {
     private final MemoryRetriever retriever;
     private final TokenBudget tokenBudget;
 
+    public MemoryManager(ConversationMemory shortTermMemory, LongTermMemory longTermMemory, ContextCompressor compressor, MemoryRetriever retriever, TokenBudget tokenBudget) {
+        this.shortTermMemory = shortTermMemory;
+        this.longTermMemory = longTermMemory;
+        this.compressor = compressor;
+        this.retriever = retriever;
+        this.tokenBudget = tokenBudget;
+    }
+
     // 存用户消息
     public void addUserMessage(String content) {
+        MemoryEntry entry = new MemoryEntry(
+                "user-" + UUID.randomUUID().toString().substring(0, 8),
+                content,
+                MemoryEntry.MemoryType.CONVERSATION,
+                Instant.now(),             // 第 4 个参数：时间戳
+                Map.of("source", "user"),  // 第 5 个参数：元数据 Map
+                MemoryEntry.estimateTokens(content)
+        );
         shortTermMemory.store(entry);
         compressIfNeeded();  // 自动检查是否需要压缩
     }
@@ -41,10 +58,13 @@ public class MemoryManager {
                 + longTermMemory.getStatusSummary() + "\n"
                 + tokenBudget.getUsageReport();
     }
-
     // Getter
     public ConversationMemory getShortTermMemory() { return shortTermMemory; }
     public LongTermMemory getLongTermMemory() { return longTermMemory; }
     public TokenBudget getTokenBudget() { return tokenBudget; }
-    public ContextProfile getContextProfile() { return contextProfile; }
+
+    public boolean compressIfNeeded() {
+        return true;
+    }
+
 }

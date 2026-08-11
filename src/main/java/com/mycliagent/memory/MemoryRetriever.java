@@ -75,4 +75,11 @@ public class MemoryRetriever {
 
         return keywordScore * timeDecay;
     }
+
+    /**
+     * 构建上下文：将相关记忆组装成文本，用于注入到 LLM 的 system prompt 中
+     */
+    public String buildContextForQuery(String query, int maxTokens) {
+        return buildContextForQuery(query, maxTokens);
+    }
 }

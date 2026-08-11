@@ -3,6 +3,7 @@ package com.mycliagent.agent;
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.LlmClient.ToolCall;
+import com.mycliagent.memory.MemoryManager;
 import com.mycliagent.tool.ToolRegistry;
 
 import java.io.IOException;
@@ -136,4 +137,6 @@ public class Agent {
         conversationHistory.add(LlmClient.Message.system(SYSTEM_PROMPT));
 
     }
+
+
 }
