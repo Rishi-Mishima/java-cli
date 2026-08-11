@@ -20,6 +20,7 @@ public class Agent {
     private final List<LlmClient.Message> conversationHistory;
     //限制 Agent 最多循环 10 次。 - 是一种保险措施,不然可能永远停不下来
     private static final int MAX_ITERATIONS = 10;
+    private final MemoryManager memoryManager;
 
     // 系统提示词
     private static final String SYSTEM_PROMPT = """
@@ -42,6 +43,7 @@ public class Agent {
         this.llmClient = new GLMClient(apiKey);
         this.toolRegistry = new ToolRegistry();
         this.conversationHistory = new ArrayList<>();
+        this.memoryManager = new MemoryManager(llmClient);
 
         // 添加系统提示
         // 创建AGENT后, 聊天记录并不是空的 而是[System Prompt]
@@ -49,6 +51,18 @@ public class Agent {
     }
 
     public String run(String userInput) {
+
+        // 1. 存入短期记忆
+        memoryManager.addUserMessage(userInput);
+
+        // 2. 检索相关长期记忆，注入到 system prompt
+        String memoryContext = memoryManager.buildContextForQuery(userInput, 500);
+        updateSystemPromptWithMemory(memoryContext);
+
+        // 3. 添加用户输入到历史（保持原文，不污染 user message）
+        conversationHistory.add(GLMClient.Message.user(userInput));
+
+        //3. ReAct 循环
         // 添加用户输入 - 加入聊天历史
         conversationHistory.add(LlmClient.Message.user(userInput));
 
