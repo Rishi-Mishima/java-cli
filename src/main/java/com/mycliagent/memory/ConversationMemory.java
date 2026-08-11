@@ -122,4 +122,13 @@ public class ConversationMemory implements Memory{
                 .collect(Collectors.toList());
     }
 
+
+    /**
+     * 生成记忆状态摘要
+     */
+    public String getStatusSummary() {
+        return String.format("短期记忆: %d条 / %d tokens (预算: %d, 使用率: %.0f%%, 已压缩: %d条)",
+                entries.size(), currentTokens, maxTokens, getUsageRatio() * 100, compressedSummaries.size());
+    }
+
 }

@@ -220,4 +220,17 @@ public class LongTermMemory implements Memory {
         }
     }
 
+    /**
+     * 生成记忆状态摘要
+     */
+    public String getStatusSummary() {
+        Map<MemoryEntry.MemoryType, Long> typeCounts = entries.values().stream()
+                .collect(Collectors.groupingBy(MemoryEntry::getType, Collectors.counting()));
+
+        return String.format("长期记忆: %d条 / %d tokens (事实: %d, 摘要: %d, 工具结果: %d)",
+                entries.size(), tokenCounter.get(),
+                typeCounts.getOrDefault(MemoryEntry.MemoryType.FACT, 0L),
+                typeCounts.getOrDefault(MemoryEntry.MemoryType.SUMMARY, 0L),
+                typeCounts.getOrDefault(MemoryEntry.MemoryType.TOOL_RESULT, 0L));
+    }
 }
