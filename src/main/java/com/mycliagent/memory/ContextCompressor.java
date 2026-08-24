@@ -3,9 +3,20 @@ package com.mycliagent.memory;
 import com.mycliagent.llm.LlmClient;
 
 import java.io.IOException;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
+
+/**
+ * 上下文压缩器 - 当对话过长时，自动压缩旧消息
+ *
+ * 压缩策略：
+ * 1. Map-Reduce：先将旧消息分片摘要（Map），再合并摘要（Reduce）
+ * 2. 保留最近 N 轮完整消息（不压缩）
+ * 3. 压缩后的摘要回注到 ConversationMemory
+ */
 
 public class ContextCompressor {
     private LlmClient llmClient;
@@ -187,4 +198,109 @@ public class ContextCompressor {
 
 
 
+    /**
+     * 从对话中提取关键事实，存入长期记忆
+     */
+    public List<String> extractFacts(List<MemoryEntry> entries, LongTermMemory longTermMemory) {
+        if (entries.isEmpty()) return List.of();
+
+        StringBuilder conversation = new StringBuilder();
+        for (MemoryEntry entry : entries) {
+            conversation.append(resolveSource(entry).toUpperCase(Locale.ROOT))
+                    .append("(").append(entry.getType()).append("): ")
+                    .append(entry.getContent()).append("\n\n");
+        }
+
+        try {
+            String prompt = String.format(EXTRACT_FACTS_PROMPT, conversation);
+            List<LlmClient.Message> messages = List.of(
+                    LlmClient.Message.system("你是一个信息提取助手，只输出关键事实，不输出其他内容。"),
+                    LlmClient.Message.user(prompt)
+            );
+
+            LlmClient.ChatResponse response = llmClient.chat(messages, null);
+            String factsText = response.content();
+
+            List<String> facts = new ArrayList<>();
+            for (String line : factsText.split("\n")) {
+                String fact = normalizeFactLine(line);
+                if (isPersistentFactCandidate(fact)) {
+                    facts.add(fact);
+
+                    // 存入长期记忆
+                    MemoryEntry factEntry = new MemoryEntry(
+                            "fact-" + UUID.randomUUID().toString().substring(0, 8),
+                            fact,
+                            MemoryEntry.MemoryType.FACT,
+                            Instant.now(),
+                            java.util.Map.of("source", "fact_extractor"),
+                            MemoryEntry.estimateTokens(fact)
+                    );
+                    longTermMemory.store(factEntry);
+                }
+            }
+            return facts;
+        } catch (IOException e) {
+            System.err.println("⚠️ 事实提取失败: " + e.getMessage());
+            return List.of();
+        }
+    }
+
+    private String resolveSource(MemoryEntry entry) {
+        String source = entry.getMetadata().get("source");
+        if (source != null && !source.isBlank()) {
+            return source;
+        }
+        if (entry.getId().startsWith("user-")) {
+            return "user";
+        }
+        if (entry.getId().startsWith("assistant-")) {
+            return "assistant";
+        }
+        if (entry.getId().startsWith("tool-")) {
+            return "tool";
+        }
+        return "unknown";
+    }
+
+    private String normalizeFactLine(String line) {
+        String fact = line == null ? "" : line.trim();
+        if (fact.startsWith("- ")) {
+            fact = fact.substring(2);
+        } else if (fact.startsWith("• ")) {
+            fact = fact.substring(2);
+        }
+        return fact.trim();
+    }
+
+    private boolean isPersistentFactCandidate(String fact) {
+        if (fact == null || fact.length() <= 5) {
+            return false;
+        }
+
+        String normalized = fact.toLowerCase(Locale.ROOT);
+        for (String prefix : EPHEMERAL_FACT_PREFIXES) {
+            if (normalized.startsWith(prefix.toLowerCase(Locale.ROOT))) {
+                return false;
+            }
+        }
+
+        for (String cue : SPECULATION_CUES) {
+            if (normalized.contains(cue.toLowerCase(Locale.ROOT))) {
+                return false;
+            }
+        }
+
+        if (normalized.contains("：") || normalized.contains(":")) {
+            return true;
+        }
+
+        for (String hint : DURABLE_FACT_HINTS) {
+            if (normalized.contains(hint.toLowerCase(Locale.ROOT))) {
+                return true;
+            }
+        }
+
+        return false;
+    }
 }

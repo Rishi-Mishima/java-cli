@@ -7,7 +7,7 @@ public class MemoryEntry {
     private final String id;
     private final String content;
     private final MemoryType type;
-    private final Instant timestamp;
+    private final Instant timestamp; // 这条 Memory 是什么时候创建的
     private final Map<String, String> metadata;
     private final int tokenCount;
 
