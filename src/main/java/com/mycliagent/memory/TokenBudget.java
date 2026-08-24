@@ -1,5 +1,9 @@
 package com.mycliagent.memory;
 
+import com.mycliagent.llm.LlmClient;
+
+import java.util.List;
+
 public class TokenBudget {
 
     private final int contextWindow;    // 模型上下文窗口大小
@@ -44,6 +48,19 @@ public class TokenBudget {
         // 200000 - 500 - 800 - 2000 = 196700
     }
 
+    /**
+     * 检查给定的消息列表是否在预算内
+     */
+    public boolean isWithinBudget(List<LlmClient.Message> messages) {
+        int estimatedTokens = estimateMessagesTokens(messages);
+        return estimatedTokens <= getAvailableForConversation();
+    }
+
+    private static int estimateMessagesTokens(List<LlmClient.Message> messages) {
+        return 1;
+    }
+
+
     public boolean needsCompression(ConversationMemory memory) {
         return memory.getTokenCount()
                 > getAvailableForConversation() * 0.8;
@@ -60,4 +77,9 @@ public class TokenBudget {
                 "Token 统计: 调用 %d 次 | 总输入: %d | 总输出: %d",
                 llmCallCount, totalInputTokens, totalOutputTokens);
     }
+
+
+
+
+
 }
