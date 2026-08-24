@@ -80,6 +80,23 @@ public class MemoryRetriever {
      * 构建上下文：将相关记忆组装成文本，用于注入到 LLM 的 system prompt 中
      */
     public String buildContextForQuery(String query, int maxTokens) {
-        return buildContextForQuery(query, maxTokens);
+        List<MemoryEntry> entries = retrieve(query, 8);
+        if (entries.isEmpty()) {
+            return "";
+        }
+
+        StringBuilder context = new StringBuilder("以下是与当前问题可能相关的记忆：\n");
+        int usedTokens = 0;
+        for (MemoryEntry entry : entries) {
+            int entryTokens = entry.getTokenCount();
+            if (usedTokens + entryTokens > maxTokens) {
+                break;
+            }
+            context.append("- ")
+                    .append(entry.getContent())
+                    .append("\n");
+            usedTokens += entryTokens;
+        }
+        return context.toString();
     }
 }

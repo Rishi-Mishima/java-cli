@@ -49,7 +49,10 @@ public class Main {
         // 先尝试从当前目录读取 .env
         File envFile = new File(".env");
         if (envFile.exists()) {
-            return readApiKeyFromFile(envFile);
+            String apiKey = readApiKeyFromFile(envFile);
+            if (apiKey != null && !apiKey.isEmpty()) {
+                return apiKey;
+            }
         }
 
         // 再尝试从环境变量读取

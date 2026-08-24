@@ -72,37 +72,45 @@ public class LongTermMemory implements Memory {
 
     @Override
     public List<MemoryEntry> getAll() {
-        return List.of();
+        return new ArrayList<>(entries.values());
     }
 
     @Override
     public boolean delete(String id) {
-        return false;
+        MemoryEntry removed = entries.remove(id);
+        if (removed == null) {
+            return false;
+        }
+        tokenCounter.addAndGet(-removed.getTokenCount());
+        saveToDisk();
+        return true;
     }
 
     @Override
     public void clear() {
-
+        entries.clear();
+        tokenCounter.set(0);
+        saveToDisk();
     }
 
     @Override
     public int getTokenCount() {
-        return 0;
+        return tokenCounter.get();
     }
 
     @Override
     public int getMaxTokens() {
-        return 0;
+        return Integer.MAX_VALUE;
     }
 
     @Override
     public int size() {
-        return 0;
+        return entries.size();
     }
 
     @Override
     public Optional<MemoryEntry> retrieve(String id) {
-        return Optional.empty();
+        return Optional.ofNullable(entries.get(id));
     }
 
     @Override

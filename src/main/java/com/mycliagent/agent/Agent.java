@@ -3,12 +3,19 @@ package com.mycliagent.agent;
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.LlmClient.ToolCall;
+import com.mycliagent.memory.ContextCompressor;
+import com.mycliagent.memory.ConversationMemory;
+import com.mycliagent.memory.LongTermMemory;
 import com.mycliagent.memory.MemoryManager;
+import com.mycliagent.memory.MemoryRetriever;
+import com.mycliagent.memory.TokenBudget;
 import com.mycliagent.tool.ToolRegistry;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 
 public class Agent {
 
@@ -44,7 +51,7 @@ public class Agent {
         this.llmClient = new GLMClient(apiKey);
         this.toolRegistry = new ToolRegistry();
         this.conversationHistory = new ArrayList<>();
-        this.memoryManager = new MemoryManager(llmClient);
+        this.memoryManager = createMemoryManager(llmClient);
 
         // 添加系统提示
         // 创建AGENT后, 聊天记录并不是空的 而是[System Prompt]
@@ -58,14 +65,11 @@ public class Agent {
 
         // 2. 检索相关长期记忆，注入到 system prompt
         String memoryContext = memoryManager.buildContextForQuery(userInput, 500);
+
         updateSystemPromptWithMemory(memoryContext);
 
         // 3. 添加用户输入到历史（保持原文，不污染 user message）
         conversationHistory.add(GLMClient.Message.user(userInput));
-
-        //3. ReAct 循环
-        // 添加用户输入 - 加入聊天历史
-        conversationHistory.add(LlmClient.Message.user(userInput));
 
         // 初始化迭代次数
         int iteration = 0;
@@ -130,12 +134,44 @@ public class Agent {
         return "达到最大迭代次数限制";
     }
 
+    private void updateSystemPromptWithMemory(String memoryContext) {
+        if (memoryContext == null || memoryContext.isEmpty()) {
+            // 恢复原始 system prompt
+            conversationHistory.set(0, GLMClient.Message.system(SYSTEM_PROMPT));
+        } else {
+            String enrichedPrompt = SYSTEM_PROMPT + "\n" + memoryContext;
+            conversationHistory.set(0, GLMClient.Message.system(enrichedPrompt));
+        }
+    }
+
     public void clearHistory() {
         // 清除用户对话
         conversationHistory.clear();
+        memoryManager.getShortTermMemory().clear();
         //保留Agent的身份和行为规则
         conversationHistory.add(LlmClient.Message.system(SYSTEM_PROMPT));
 
+    }
+
+    private static MemoryManager createMemoryManager(LlmClient llmClient) {
+        ConversationMemory shortTermMemory = new ConversationMemory(
+                new LinkedHashMap<>(),
+                12_000,
+                new AtomicInteger(0),
+                new ArrayList<>()
+        );
+        LongTermMemory longTermMemory = new LongTermMemory();
+        ContextCompressor compressor = new ContextCompressor(llmClient, 6);
+        MemoryRetriever retriever = new MemoryRetriever(shortTermMemory, longTermMemory);
+        TokenBudget tokenBudget = new TokenBudget(128_000);
+
+        return new MemoryManager(
+                shortTermMemory,
+                longTermMemory,
+                compressor,
+                retriever,
+                tokenBudget
+        );
     }
 
 
