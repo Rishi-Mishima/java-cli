@@ -1,38 +1,107 @@
 # MyCliAgent
 
-MyCliAgent is a Java learning project for building a command-line AI agent. The project is focused on understanding two common agent architectures:
+A Java command-line AI agent that demonstrates ReAct-style tool calling, memory-aware prompting, and a Plan-and-Execute architecture prototype.
 
-- ReAct: the agent reasons, calls tools, observes tool results, and repeats.
-- Plan-and-Execute: the agent first creates a structured plan, then executes tasks according to dependencies.
+This project is designed as a portfolio-friendly AI agent implementation: it can run in `mock` mode without a paid API key, while still keeping a real GLM provider behind the same `LlmClient` abstraction.
 
-This project is still in progress. The ReAct path has the core tool-calling loop and local tool registry. The Plan-and-Execute path has planning, task modeling, dependency handling, and execution-order calculation, but task execution is not fully wired yet.
+## Features
 
-## Current Status
+- Java 17 CLI entry point with an interactive chat loop.
+- Provider-agnostic LLM interface through `LlmClient`.
+- Real GLM integration through `GLMClient`.
+- API-free demo mode through `MockLlmClient`.
+- ReAct loop: model response, tool call, tool observation, final answer.
+- Tool registry for file reading, file writing, directory listing, shell commands, and project directory creation.
+- Short-term conversation memory and long-term memory retrieval.
+- Plan-and-Execute prototype with task modeling, dependency tracking, topological sorting, and cycle detection.
 
-Implemented:
+## Quick Start
 
-- Java CLI entry point.
-- GLM chat client wrapper.
-- ReAct-style agent loop.
-- Tool definitions for file reading, file writing, directory listing, shell command execution, and project directory creation.
-- Tool call data model.
-- Conversation history management.
-- Planner prompt for generating JSON execution plans.
-- `ExecutionPlan` and `Task` domain models.
-- Dependency tracking between tasks.
-- Topological sorting and cycle detection for execution plans.
-- Basic `.env` loading for `GLM_API_KEY`.
+Requirements:
 
-Not finished yet:
+- Java 17
+- Maven
 
-- `PlanExecuteAgent.executeTask()` currently only prints the task description.
-- Plan-and-Execute is not connected to the CLI by default.
-- Replanning exists as a method, but failure-driven automatic replanning is not fully integrated.
-- Tool execution does not yet enforce sandboxing or user confirmation.
-- There are no unit tests yet.
-- Error handling and JSON validation can be improved.
+Clone the project and create a local `.env` file:
 
-## Architecture Overview
+```bash
+cp .env.example .env
+```
+
+Run in mock mode:
+
+```bash
+mvn -q package
+mvn -q exec:java -Dexec.mainClass=com.mycliagent.cli.Main
+```
+
+Mock mode is the default and does not call any external LLM API.
+
+## Demo Script
+
+After the CLI starts, try:
+
+```text
+你好，请用一句话介绍你自己
+```
+
+Then test tool calling:
+
+```text
+请读取 README.md，并总结这个项目是做什么的
+```
+
+```text
+请列出当前项目的 src/main/java 目录结构
+```
+
+```text
+请执行 mvn -q package，告诉我是否编译成功
+```
+
+```text
+请创建一个文件 temp-agent-test.txt，内容是 hello from agent
+```
+
+Use:
+
+```text
+clear
+```
+
+to clear conversation history, and:
+
+```text
+exit
+```
+
+to quit.
+
+## Real GLM Mode
+
+To call the real BigModel GLM API, edit `.env`:
+
+```text
+LLM_PROVIDER=glm
+GLM_API_KEY=your_glm_api_key_here
+```
+
+Then run:
+
+```bash
+mvn -q exec:java -Dexec.mainClass=com.mycliagent.cli.Main
+```
+
+The current GLM client uses:
+
+```text
+https://open.bigmodel.cn/api/paas/v4/chat/completions
+glm-5.1
+```
+
+If the GLM account has no balance or resource package, the API may return an HTTP 429 billing error.
+
+## Architecture
 
 ```text
 User
@@ -41,16 +110,29 @@ User
 CLI Main
   |
   v
-Agent / PlanExecuteAgent
+Agent
   |
-  +--> LlmClient / GLMClient
+  +--> LlmClient
+  |      +--> MockLlmClient
+  |      +--> GLMClient
   |
   +--> ToolRegistry
+  |      +--> read_file
+  |      +--> write_file
+  |      +--> list_dir
+  |      +--> execute_command
+  |      +--> create_project
   |
-  +--> Planner / ExecutionPlan / Task
+  +--> MemoryManager
+         +--> ConversationMemory
+         +--> LongTermMemory
+         +--> MemoryRetriever
+         +--> ContextCompressor
 ```
 
-## ReAct Agent
+The agent depends on the `LlmClient` interface rather than a concrete provider. This keeps the core loop independent from GLM and makes it possible to add OpenAI, Claude, DeepSeek, or other OpenAI-compatible providers later.
+
+## ReAct Flow
 
 The ReAct implementation is centered in:
 
@@ -58,34 +140,19 @@ The ReAct implementation is centered in:
 src/main/java/com/mycliagent/agent/Agent.java
 ```
 
-The loop works like this:
+The loop:
 
 ```text
-1. Add user input to conversation history.
-2. Send conversation history and tool definitions to the LLM.
-3. If the LLM returns tool calls:
-   - Save the assistant tool-call message.
-   - Execute each requested tool.
-   - Add tool results back into conversation history.
-   - Continue the loop.
-4. If the LLM returns normal text:
-   - Save the assistant response.
-   - Return the final answer.
-5. Stop if MAX_ITERATIONS is reached.
+1. Store user input in memory.
+2. Retrieve relevant memory and inject it into the system prompt.
+3. Send conversation history and tool definitions to the LLM.
+4. If the LLM returns tool calls, execute them through ToolRegistry.
+5. Add tool observations back to conversation history.
+6. Repeat until the LLM returns a final answer.
+7. Stop after a maximum iteration limit.
 ```
 
-Key classes:
-
-- `Agent`: controls the ReAct loop.
-- `LlmClient`: defines the chat, message, tool, and tool-call abstractions.
-- `GLMClient`: sends requests to the GLM chat completion API.
-- `ToolRegistry`: stores available tools and executes tool calls.
-
-Why this matters:
-
-ReAct turns an LLM from a single-response system into an iterative decision-making agent. The model can decide when to inspect files, run commands, write files, or continue reasoning based on observations.
-
-## Plan-and-Execute Agent
+## Plan-and-Execute Prototype
 
 The Plan-and-Execute implementation is centered in:
 
@@ -96,119 +163,58 @@ src/main/java/com/mycliagent/plan/ExecutionPlan.java
 src/main/java/com/mycliagent/plan/Task.java
 ```
 
-The intended flow is:
+It models larger tasks as a dependency graph:
 
 ```text
-1. Decide whether the user request needs planning.
-2. Ask the LLM planner to produce a JSON task plan.
-3. Parse the JSON into an ExecutionPlan.
-4. Normalize task IDs.
-5. Build task dependencies.
-6. Run topological sorting to compute execution order.
-7. Execute each task in dependency-safe order.
-8. Summarize results.
+1. Ask the planner to produce a JSON execution plan.
+2. Parse tasks into domain objects.
+3. Normalize task IDs.
+4. Build dependency links.
+5. Topologically sort tasks.
+6. Detect cycles before execution.
 ```
 
-The planner asks the LLM to return JSON like:
+The execution step is intentionally still a prototype, which makes it a good area for future extension.
 
-```json
-{
-  "summary": "任务摘要",
-  "tasks": [
-    {
-      "id": "task_1",
-      "description": "任务描述",
-      "type": "FILE_READ",
-      "dependencies": []
-    }
-  ]
-}
-```
+## Design Notes
 
-Supported task types:
+- `LlmClient` isolates provider-specific request and response formats from agent behavior.
+- `ToolRegistry` centralizes tool metadata and execution.
+- `MockLlmClient` makes the project reviewable without external API credentials.
+- The memory layer separates conversation memory, long-term storage, retrieval, compression, and token budgeting.
+- Plan-and-Execute is kept separate from ReAct because the two patterns serve different task shapes.
 
-- `FILE_READ`
-- `FILE_WRITE`
-- `COMMAND`
-- `ANALYSIS`
-- `VERIFICATION`
-
-Why this matters:
-
-Plan-and-Execute is better for complex, multi-step tasks. It separates planning from execution, making the agent easier to debug, visualize, and extend. It also makes dependency handling explicit through a task graph.
-
-## ReAct vs Plan-and-Execute
-
-| Aspect | ReAct | Plan-and-Execute |
-| --- | --- | --- |
-| Strategy | Think and act step by step | Plan first, execute later |
-| Best for | Exploratory tasks | Complex multi-step tasks |
-| Main state | Conversation history | Execution plan and task graph |
-| Strength | Flexible and adaptive | Structured and easier to inspect |
-| Risk | Can loop or drift | Initial plan may be wrong |
-| Project class | `Agent` | `PlanExecuteAgent` |
-
-## How to Build
-
-Requirements:
-
-- Java 17
-- Maven
-
-Compile and run tests:
-
-```bash
-mvn test
-```
-
-Compile only:
-
-```bash
-mvn compile
-```
-
-## How to Run
-
-Create a `.env` file in the project root:
+## Project Structure
 
 ```text
-GLM_API_KEY=your_api_key_here
+src/main/java/com/mycliagent
+├── agent
+│   ├── Agent.java
+│   └── PlanExecuteAgent.java
+├── cli
+│   └── Main.java
+├── llm
+│   ├── LlmClient.java
+│   ├── GLMClient.java
+│   └── MockLlmClient.java
+├── memory
+├── plan
+└── tool
 ```
 
-Run the CLI:
+## Portfolio Summary
 
-```bash
-mvn exec:java -Dexec.mainClass=com.mycliagent.cli.Main
-```
+MyCliAgent is a Java CLI AI agent framework built to explore production-style agent architecture. It implements a ReAct tool-calling loop, provider abstraction, configurable mock and GLM backends, memory retrieval, and an early Plan-and-Execute task graph. The project demonstrates practical agent engineering concepts without relying on a heavyweight framework.
 
-If Maven cannot find the exec plugin in some environments, add `exec-maven-plugin` to `pom.xml` or run the compiled class through your IDE.
+## Roadmap
 
-## Interview Explanation
-
-A concise way to explain this project:
-
-> This is a Java command-line AI agent project. I used it to learn two agent architectures: ReAct and Plan-and-Execute. The ReAct agent keeps conversation history, sends tool definitions to the model, executes returned tool calls, feeds observations back into the model, and repeats until the model returns a final answer. The Plan-and-Execute part asks the model to produce a structured JSON plan, parses it into task objects, builds dependencies, and uses topological sorting to compute a valid execution order.
-
-More detailed interview points:
-
-- I separated the LLM provider behind `LlmClient`, so the agent logic is not tightly coupled to `GLMClient`.
-- I modeled tools with name, description, JSON parameters, and executor function.
-- I used conversation history to preserve context across ReAct iterations.
-- I added a maximum iteration limit to prevent infinite loops.
-- I represented plans as tasks with dependencies, which forms a directed graph.
-- I used DFS-based topological sorting to detect cycles and generate a valid execution order.
-- I intentionally keep Plan-and-Execute separate from ReAct because they solve different workflow problems.
-
-## Next Steps
-
-Useful improvements:
-
+- Add `OpenAIClient` and provider selection for OpenAI-compatible APIs.
+- Add unit tests for `ExecutionPlan`, `MemoryRetriever`, and `ToolRegistry`.
+- Add safety confirmation before shell command execution.
 - Connect `PlanExecuteAgent` to the CLI with a mode switch.
-- Implement real execution in `executeTask()` based on `TaskType`.
-- Add unit tests for `ExecutionPlan.computeExecutionOrder()`.
-- Add tests for `ToolRegistry.executeTool()`.
-- Improve JSON validation in `Planner`.
-- Add safety checks before shell command execution.
-- Add automatic replanning after failed tasks.
-- Add logging instead of `System.out.println`.
+- Add structured logs or trace output for each ReAct iteration.
+- Improve JSON validation and error handling for planner responses.
 
+## License
+
+Add an open-source license such as MIT or Apache 2.0 before using this as a public portfolio project.

@@ -21,7 +21,7 @@ public class Agent {
 
 
     private static final int MAX_RETRIES = 3;
-    private final GLMClient llmClient;
+    private final LlmClient llmClient;
     //保存所有工具。
     private final ToolRegistry toolRegistry;
     //  保存所有聊天记录
@@ -48,7 +48,11 @@ public class Agent {
         """;
 
     public Agent(String apiKey) {
-        this.llmClient = new GLMClient(apiKey);
+        this(new GLMClient(apiKey));
+    }
+
+    public Agent(LlmClient llmClient) {
+        this.llmClient = llmClient;
         this.toolRegistry = new ToolRegistry();
         this.conversationHistory = new ArrayList<>();
         this.memoryManager = createMemoryManager(llmClient);
