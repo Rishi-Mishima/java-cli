@@ -1,6 +1,7 @@
 package com.mycliagent.cli;
 
 import com.mycliagent.agent.Agent;
+import com.mycliagent.agent.AgentOrchestrator;
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.MockLlmClient;
@@ -21,12 +22,13 @@ public class Main {
         // 创建 Agent - 执行之前写的构造函数 Agent ( 此时AGENT已经有了GLM客户端, tool registry, history, system prompt)
         LlmClient llmClient = createLlmClient(config);
         Agent agent = new Agent(llmClient);
+        AgentOrchestrator orchestrator = new AgentOrchestrator(llmClient);
 
         // 交互式循环
         // 读取终端输入
         Scanner scanner = new Scanner(System.in);
         System.out.printf("✅ Provider: %s (%s)%n", llmClient.getProviderName(), llmClient.getModelName());
-        System.out.println("💡 提示: 输入 'clear' 清空历史, 'exit' 退出\n");
+        System.out.println("💡 提示: 输入 'clear' 清空历史, 'exit' 退出, '/multi 任务' 启动多 Agent\n");
 
         while (true) {
             System.out.print("👤 你: ");
@@ -40,8 +42,13 @@ public class Main {
                 continue;
             }
 
-            // 运行 Agent - run方法
-            String response = agent.run(input);
+            String response;
+            if (input.startsWith("/multi ")) {
+                response = orchestrator.run(input.substring("/multi ".length()).trim());
+            } else {
+                // 运行 Agent - run方法
+                response = agent.run(input);
+            }
             System.out.println("🤖 Agent: " + response + "\n");
         }
     }

@@ -10,7 +10,17 @@ public interface LlmClient {
 
     ChatResponse chat(List<Message> messages, List<Tool> tools) throws IOException;
 
-    ChatResponse chat(List<Message> messages, List<Tool> tools, StreamListener listener) throws IOException;
+    default ChatResponse chat(List<Message> messages, List<Tool> tools, StreamListener listener) throws IOException {
+        ChatResponse response = chat(messages, tools);
+        StreamListener safeListener = listener == null ? StreamListener.NO_OP : listener;
+        if (response.reasoningContent() != null && !response.reasoningContent().isBlank()) {
+            safeListener.onReasoningDelta(response.reasoningContent());
+        }
+        if (response.content() != null && !response.content().isBlank()) {
+            safeListener.onContentDelta(response.content());
+        }
+        return response;
+    }
 
     String getModelName();
 

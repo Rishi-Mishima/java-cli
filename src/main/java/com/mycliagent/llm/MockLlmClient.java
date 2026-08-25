@@ -1,11 +1,17 @@
 package com.mycliagent.llm;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
 import java.io.IOException;
 import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
 public class MockLlmClient implements LlmClient {
+    private static final ObjectMapper MAPPER = new ObjectMapper();
+
     @Override
     public String getModelName() {
         return "mock-agent";
@@ -20,11 +26,22 @@ public class MockLlmClient implements LlmClient {
     public ChatResponse chat(List<Message> messages, List<Tool> tools) throws IOException {
         Message lastMessage = messages.get(messages.size() - 1);
         if ("tool".equals(lastMessage.role())) {
-            return new ChatResponse(formatToolObservation(messages, lastMessage.content()), List.of());
+            return new ChatResponse("assistant", formatToolObservation(messages, lastMessage.content()), List.of(), 0, 0);
         }
 
         String input = lastMessage.content();
         String normalized = input.toLowerCase(Locale.ROOT);
+        String systemPrompt = messages.isEmpty() ? "" : messages.get(0).content();
+
+        if (systemPrompt != null && systemPrompt.contains("规划者")) {
+            return new ChatResponse("assistant", createMockPlan(input), List.of(), 0, 0);
+        }
+
+        if (systemPrompt != null && systemPrompt.contains("审查者")) {
+            return new ChatResponse("assistant", """
+                    {"approved":true,"issues":[],"suggestions":[],"summary":"Mock 审查通过"}
+                    """, List.of(), 0, 0);
+        }
 
         if (containsAny(normalized, "readme", "读取", "读文件", "read_file")) {
             return callTool("read_file", "{\"path\":\"README.md\"}");
@@ -43,15 +60,32 @@ public class MockLlmClient implements LlmClient {
                 你好，我是 MyCliAgent 的 Mock LLM。
                 当前不需要 API key，也不会请求真实模型；你可以让我读取 README、列目录、执行 mvn package，或创建 temp-agent-test.txt 来演示工具调用流程。
                 """;
-        return new ChatResponse(response, List.of());
+        return new ChatResponse("assistant", response, List.of(), 0, 0);
     }
 
     private ChatResponse callTool(String toolName, String arguments) {
         ToolCall toolCall = new ToolCall(
                 "mock-call-" + UUID.randomUUID().toString().substring(0, 8),
-                new FunctionCall(toolName, arguments)
+                new ToolCall.Function(toolName, arguments)
         );
-        return new ChatResponse("", List.of(toolCall));
+        return new ChatResponse("assistant", "", List.of(toolCall), 0, 0);
+    }
+
+    private String createMockPlan(String input) {
+        String task = input == null ? "" : input.trim();
+        int marker = task.lastIndexOf("请为以下任务制定执行计划：");
+        if (marker >= 0) {
+            task = task.substring(marker + "请为以下任务制定执行计划：".length()).trim();
+        }
+
+        ObjectNode root = MAPPER.createObjectNode();
+        ArrayNode steps = root.putArray("steps");
+        ObjectNode step = steps.addObject();
+        step.put("id", "step_1");
+        step.put("description", "完成用户任务：" + task);
+        step.put("type", "COMMAND");
+        step.putArray("dependencies");
+        return root.toString();
     }
 
     private boolean containsAny(String text, String... keywords) {

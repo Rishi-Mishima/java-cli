@@ -4,6 +4,9 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mycliagent.agent.LspDiagnosticReport;
+import com.mycliagent.agent.ToolExecutionResult;
+import com.mycliagent.agent.ToolInvocation;
 import com.mycliagent.context.ContextProfile;
 import com.mycliagent.llm.LlmClient;
 
@@ -14,22 +17,50 @@ import java.nio.file.Path;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 
 public class ToolRegistry {
     private final Map<String, Tool> tools;
     private final ObjectMapper mapper;
+    private ContextProfile contextProfile = ContextProfile.from(null);
+    private String projectPath = System.getProperty("user.dir");
+    private Consumer<String> scopedMemorySaver = fact -> {};
+    private String providerName = "";
+    private String modelName = "";
 
     public void setCurrentModel(String providerName, String modelName) {
-
+        this.providerName = providerName == null ? "" : providerName;
+        this.modelName = modelName == null ? "" : modelName;
+        this.contextProfile = ContextProfile.from(new ModelInfoClient(this.providerName, this.modelName));
     }
 
     public ContextProfile getContextProfile() {
-        return null;
+        return contextProfile;
+    }
+
+    public void setContextProfile(ContextProfile contextProfile) {
+        if (contextProfile != null) {
+            this.contextProfile = contextProfile;
+        }
     }
 
     public String getProjectPath() {
-        return "";
+        return projectPath;
+    }
+
+    public void setProjectPath(String projectPath) {
+        if (projectPath != null && !projectPath.isBlank()) {
+            this.projectPath = projectPath;
+        }
+    }
+
+    public void setScopedMemorySaver(Consumer<String> scopedMemorySaver) {
+        this.scopedMemorySaver = scopedMemorySaver == null ? fact -> {} : scopedMemorySaver;
+    }
+
+    public LspDiagnosticReport flushPendingLspDiagnostics() {
+        return null;
     }
 
     public record Tool
@@ -65,7 +96,7 @@ public class ToolRegistry {
                     String path = args.get("path");
                     try {
                         //path 只是"文件的位置"，Files.readString() 会根据这个位置去磁盘把文件内容读出来。
-                        String content = Files.readString(Path.of(path));
+                        String content = Files.readString(resolvePath(path));
                         return "文件内容:\n" + content;
                     } catch (Exception e) {
                         return "读取文件失败: " + e.getMessage();
@@ -80,7 +111,7 @@ public class ToolRegistry {
                 args -> {
                     String path = args.get("path");
                     try {
-                        return Files.list(Path.of(path))
+                        return Files.list(resolvePath(path))
                                 .map(p -> p.getFileName().toString())
                                 .collect(Collectors.joining("\n"));
                     } catch (Exception e) {
@@ -104,7 +135,7 @@ public class ToolRegistry {
             //Path.of(path) 这个文件的位置
             // Files.writeString(...) 把字符串写到文件里
             try {
-                Files.writeString(Path.of(path), content);
+                Files.writeString(resolvePath(path), content);
                 return "文件已写入: " + path;
             } catch (Exception e) {
                 return "写入文件失败: " + e.getMessage();
@@ -119,11 +150,25 @@ public class ToolRegistry {
                 args -> {
                     String path = args.get("path");
                     try {
-                        Files.createDirectories(Path.of(path));
+                        Files.createDirectories(resolvePath(path));
                         return "项目目录已创建: " + path;
                     } catch (Exception e) {
                         return "创建项目失败: " + e.getMessage();
                     }
+                }
+        ));
+
+        tools.put("save_memory", new Tool(
+                "save_memory",
+                "保存一条对后续任务有帮助的长期记忆",
+                createParameters(new Param("fact", "string", "要保存的事实或偏好", true)),
+                args -> {
+                    String fact = args.get("fact");
+                    if (fact == null || fact.isBlank()) {
+                        return "保存记忆失败: fact 为空";
+                    }
+                    scopedMemorySaver.accept(fact);
+                    return "记忆已保存";
                 }
         ));
     }
@@ -206,11 +251,53 @@ private JsonNode createParameters(Param... params) {
         }
     }
 
+    public List<ToolExecutionResult> executeTools(List<ToolInvocation> invocations) {
+        if (invocations == null || invocations.isEmpty()) {
+            return List.of();
+        }
+        return invocations.parallelStream()
+                .map(invocation -> new ToolExecutionResult(
+                        invocation.id(),
+                        invocation.name(),
+                        executeTool(invocation.name(), invocation.argumentsJson())))
+                .toList();
+    }
+
+    private Path resolvePath(String path) {
+        Path candidate = Path.of(path == null || path.isBlank() ? "." : path);
+        if (candidate.isAbsolute()) {
+            return candidate.normalize();
+        }
+        return Path.of(projectPath).resolve(candidate).normalize();
+    }
+
     // 负责执行,以后所有工具都会实现这个接口。
     public interface ToolExecutor {
 
         String execute(Map<String, String> args);
 
 
+    }
+
+    private record ModelInfoClient(String providerName, String modelName) implements LlmClient {
+        @Override
+        public ChatResponse chat(List<Message> messages, List<LlmClient.Tool> tools) {
+            throw new UnsupportedOperationException("ModelInfoClient cannot chat");
+        }
+
+        @Override
+        public ChatResponse chat(List<Message> messages, List<LlmClient.Tool> tools, StreamListener listener) {
+            throw new UnsupportedOperationException("ModelInfoClient cannot chat");
+        }
+
+        @Override
+        public String getModelName() {
+            return modelName == null ? "" : modelName;
+        }
+
+        @Override
+        public String getProviderName() {
+            return providerName == null ? "" : providerName;
+        }
     }
 }

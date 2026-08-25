@@ -1,5 +1,6 @@
 package com.mycliagent.memory;
 
+import com.mycliagent.context.ContextProfile;
 import com.mycliagent.llm.LlmClient;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -7,9 +8,12 @@ import org.slf4j.LoggerFactory;
 
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 /**
@@ -24,27 +28,69 @@ public class MemoryManager {
     private final ContextCompressor compressor;
     private final MemoryRetriever retriever;
     private final TokenBudget tokenBudget;
+    private final ContextProfile contextProfile;
+    private String projectPath = System.getProperty("user.dir");
+
+    public MemoryManager(LlmClient llmClient) {
+        this(createShortTermMemory(ContextProfile.from(llmClient)),
+                new LongTermMemory(),
+                null,
+                null,
+                new TokenBudget(ContextProfile.from(llmClient).maxContextWindow()),
+                ContextProfile.from(llmClient));
+    }
 
     public MemoryManager(ConversationMemory shortTermMemory, LongTermMemory longTermMemory, ContextCompressor compressor, MemoryRetriever retriever, TokenBudget tokenBudget) {
+        this(shortTermMemory, longTermMemory, compressor, retriever, tokenBudget, ContextProfile.from(null));
+    }
+
+    private MemoryManager(ConversationMemory shortTermMemory, LongTermMemory longTermMemory,
+                          ContextCompressor compressor, MemoryRetriever retriever,
+                          TokenBudget tokenBudget, ContextProfile contextProfile) {
         this.shortTermMemory = shortTermMemory;
         this.longTermMemory = longTermMemory;
         this.compressor = compressor;
-        this.retriever = retriever;
+        this.retriever = retriever == null ? new MemoryRetriever(shortTermMemory, longTermMemory) : retriever;
         this.tokenBudget = tokenBudget;
+        this.contextProfile = contextProfile == null ? ContextProfile.from(null) : contextProfile;
     }
 
     // 存用户消息
     public void addUserMessage(String content) {
+        addConversationMessage("user", content);
+    }
+
+    public void addAssistantMessage(String content) {
+        addConversationMessage("assistant", content);
+    }
+
+    private void addConversationMessage(String source, String content) {
+        String safeContent = content == null ? "" : content;
         MemoryEntry entry = new MemoryEntry(
-                "user-" + UUID.randomUUID().toString().substring(0, 8),
-                content,
+                source + "-" + UUID.randomUUID().toString().substring(0, 8),
+                safeContent,
                 MemoryEntry.MemoryType.CONVERSATION,
                 Instant.now(),             // 第 4 个参数：时间戳
-                Map.of("source", "user"),  // 第 5 个参数：元数据 Map
-                MemoryEntry.estimateTokens(content)
+                Map.of("source", source),  // 第 5 个参数：元数据 Map
+                MemoryEntry.estimateTokens(safeContent)
         );
         shortTermMemory.store(entry);
         compressIfNeeded();  // 自动检查是否需要压缩
+    }
+
+    public void storeFact(String fact) {
+        if (fact == null || fact.isBlank()) {
+            return;
+        }
+        MemoryEntry entry = new MemoryEntry(
+                "fact-" + UUID.randomUUID().toString().substring(0, 8),
+                fact.trim(),
+                MemoryEntry.MemoryType.FACT,
+                Instant.now(),
+                Map.of("source", "agent", "projectPath", projectPath),
+                MemoryEntry.estimateTokens(fact)
+        );
+        longTermMemory.store(entry);
     }
 
     // 检索相关记忆
@@ -62,9 +108,29 @@ public class MemoryManager {
     public ConversationMemory getShortTermMemory() { return shortTermMemory; }
     public LongTermMemory getLongTermMemory() { return longTermMemory; }
     public TokenBudget getTokenBudget() { return tokenBudget; }
+    public ContextProfile getContextProfile() { return contextProfile; }
+
+    public String getProjectPath() {
+        return projectPath;
+    }
+
+    public void setProjectPath(String projectPath) {
+        if (projectPath != null && !projectPath.isBlank()) {
+            this.projectPath = Path.of(projectPath).toAbsolutePath().normalize().toString();
+        }
+    }
 
     public boolean compressIfNeeded() {
         return true;
+    }
+
+    private static ConversationMemory createShortTermMemory(ContextProfile profile) {
+        return new ConversationMemory(
+                new LinkedHashMap<>(),
+                profile.shortTermMemoryBudget(),
+                new AtomicInteger(0),
+                new ArrayList<>()
+        );
     }
 
 }

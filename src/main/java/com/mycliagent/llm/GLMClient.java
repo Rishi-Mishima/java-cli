@@ -171,7 +171,7 @@ public class GLMClient implements LlmClient {
 
                     toolCalls.add(new ToolCall(
                             toolCallNode.path("id").asText(),
-                            new FunctionCall(
+                            new ToolCall.Function(
                                     functionNode.path("name").asText(),
                                     arguments
                             )
@@ -180,12 +180,14 @@ public class GLMClient implements LlmClient {
             }
 
             return new ChatResponse(
+                    "assistant",
                     content,
-                    toolCalls
+                    toolCalls,
+                    root.path("usage").path("prompt_tokens").asInt(0),
+                    root.path("usage").path("completion_tokens").asInt(0)
             );
         }
 
     }
 }
-
 
