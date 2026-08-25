@@ -19,6 +19,10 @@ public class ToolRegistry {
     private final Map<String, Tool> tools;
     private final ObjectMapper mapper;
 
+    public void setCurrentModel(String providerName, String modelName) {
+
+    }
+
     public record Tool
             (
              String name,
