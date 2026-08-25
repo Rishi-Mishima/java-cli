@@ -13,6 +13,7 @@ import com.mycliagent.skill.SkillContextBuffer;
 import com.mycliagent.skill.SkillIndexFormatter;
 import com.mycliagent.skill.SkillRegistry;
 import com.mycliagent.tool.ToolRegistry;
+import com.mycliagent.util.AnsiStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
