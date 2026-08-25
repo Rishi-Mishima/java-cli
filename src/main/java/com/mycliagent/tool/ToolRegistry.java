@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.mycliagent.context.ContextProfile;
 import com.mycliagent.llm.LlmClient;
 
 import java.io.BufferedReader;
@@ -21,6 +22,14 @@ public class ToolRegistry {
 
     public void setCurrentModel(String providerName, String modelName) {
 
+    }
+
+    public ContextProfile getContextProfile() {
+        return null;
+    }
+
+    public String getProjectPath() {
+        return "";
     }
 
     public record Tool
