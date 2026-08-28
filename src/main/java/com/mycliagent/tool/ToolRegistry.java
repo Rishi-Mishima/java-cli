@@ -9,6 +9,8 @@ import com.mycliagent.agent.ToolExecutionResult;
 import com.mycliagent.agent.ToolInvocation;
 import com.mycliagent.context.ContextProfile;
 import com.mycliagent.llm.LlmClient;
+import com.mycliagent.rag.CodeRetriever;
+import com.mycliagent.rag.VectorStore;
 
 import java.io.BufferedReader;
 import java.io.InputStreamReader;
@@ -200,6 +202,47 @@ public class ToolRegistry {
                                 exitCode, output);
                     } catch (Exception e) {
                         return "执行命令失败: " + e.getMessage();
+                    }
+                }
+        ));
+    }
+
+    /**
+     * 注册 RAG 检索工具
+     */
+    private void registerRagTools() {
+        tools.put("search_code", new Tool(
+                "search_code",
+                "RAG 语义辅助检索代码库，根据自然语言描述查找相关代码块；精确符号/字符串定位请优先用 grep_code/glob_files/read_file；默认 top_k=5，可显式指定（上限 30）",
+                createParameters(
+                        new Param("query", "string", "自然语言查询描述，例如'用户登录的实现'", true),
+                        new Param("top_k", "integer", "返回结果数量（默认 5，上限 30）", false)
+                ),
+                args -> {
+                    String query = args.get("query");
+                    int topK = 5;
+                    try {
+                        if (args.containsKey("top_k")) {
+                            topK = Integer.parseInt(args.get("top_k"));
+                        }
+                    } catch (NumberFormatException ignored) {
+                    }
+                    topK = Math.max(1, Math.min(topK, 30));
+
+                    try (CodeRetriever retriever = new CodeRetriever(projectPath)) {
+                        var stats = retriever.getStats();
+                        if (stats.chunkCount() == 0) {
+                            return "代码库尚未索引，请先使用 /index 命令索引当前项目。";
+                        }
+
+                        List<VectorStore.SearchResult> results = retriever.hybridSearch(query, topK);
+                        if (results.isEmpty()) {
+                            return "未找到与查询相关的代码。";
+                        }
+
+                        return SearchResultFormatter.formatForTool(query, results);
+                    } catch (Exception e) {
+                        return "代码检索失败: " + e.getMessage();
                     }
                 }
         ));

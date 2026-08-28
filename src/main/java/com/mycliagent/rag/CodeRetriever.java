@@ -4,7 +4,6 @@ package com.mycliagent.rag;
 import java.nio.file.Paths;
 import java.sql.SQLException;
 import java.util.*;
-
 /**
  * 代码检索器：语义检索 + 图谱检索的统一入口
  */
@@ -41,8 +40,6 @@ public class CodeRetriever implements AutoCloseable {
      * 混合检索：同时进行语义检索和关键词检索，合并去重
      */
     public List<VectorStore.SearchResult> hybridSearch(String query, int topK) throws Exception {
-        // LinkedHashMap 在提供 Map 的 key-value/去重能力的同时，还会保留插入顺序。
-        // 建立一个 Map，用 filePath + name 作为唯一 key，保存搜索结果，方便之后把 semantic 和 keyword 的结果合并、去重
         Map<String, VectorStore.SearchResult> merged = new LinkedHashMap<>();
         Set<String> dualMatchBonused = new HashSet<>();
 

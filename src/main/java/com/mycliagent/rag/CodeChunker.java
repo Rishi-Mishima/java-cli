@@ -1,6 +1,12 @@
 package com.mycliagent.rag;
 
 
+import com.github.javaparser.JavaParser;
+import com.github.javaparser.ParseResult;
+import com.github.javaparser.ParserConfiguration;
+import com.github.javaparser.ast.CompilationUnit;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
