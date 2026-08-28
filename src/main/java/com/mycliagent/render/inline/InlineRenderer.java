@@ -5,6 +5,7 @@ import com.mycliagent.hitl.ApprovalRequest;
 import com.mycliagent.hitl.ApprovalResult;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.render.PlainRenderer;
+import com.mycliagent.render.Renderer;
 import com.mycliagent.render.StatusInfo;
 import com.mycliagent.util.AnsiStyle;
 import org.jline.reader.LineReader;

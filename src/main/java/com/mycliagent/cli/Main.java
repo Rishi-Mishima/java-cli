@@ -2,19 +2,26 @@ package com.mycliagent.cli;
 
 import com.mycliagent.agent.Agent;
 import com.mycliagent.agent.AgentOrchestrator;
+import com.mycliagent.hitl.HitlHandler;
+import com.mycliagent.hitl.HitlToolRegistry;
+import com.mycliagent.hitl.TerminalHitlHandler;
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.MockLlmClient;
 import com.mycliagent.rag.CodeIndex;
 import com.mycliagent.rag.CodeRetriever;
 import com.mycliagent.rag.SearchResultFormatter;
+import com.mycliagent.tool.ToolRegistry;
 
+import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStreamReader;
+import java.io.PrintStream;
 import java.nio.file.Files;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Scanner;
 
 public class Main {
     public static void main(String[] args) {
@@ -24,23 +31,38 @@ public class Main {
 
         // 创建 Agent - 执行之前写的构造函数 Agent ( 此时AGENT已经有了GLM客户端, tool registry, history, system prompt)
         LlmClient llmClient = createLlmClient(config);
-        Agent agent = new Agent(llmClient);
-        AgentOrchestrator orchestrator = new AgentOrchestrator(llmClient);
+        BufferedReader inputReader = new BufferedReader(new InputStreamReader(System.in, StandardCharsets.UTF_8));
+        PrintStream output = System.out;
+        HitlHandler hitlHandler = new TerminalHitlHandler(config.hitlEnabled(), inputReader, output);
+        ToolRegistry toolRegistry = new HitlToolRegistry(hitlHandler);
+        Agent agent = new Agent(llmClient, toolRegistry);
+        agent.setHitlEnabledSupplier(hitlHandler::isEnabled);
+        AgentOrchestrator orchestrator = new AgentOrchestrator(llmClient, toolRegistry);
 
         // 交互式循环
         // 读取终端输入
-        Scanner scanner = new Scanner(System.in);
         System.out.printf("✅ Provider: %s (%s)%n", llmClient.getProviderName(), llmClient.getModelName());
         System.out.println("💡 提示: 输入 'clear' 清空历史, 'exit' 退出, '/multi 任务' 启动多 Agent, '/index' 索引当前项目, '/search 查询' 检索代码\n");
 
         while (true) {
             System.out.print("👤 你: ");
-            String input = scanner.nextLine().trim();
+            String line;
+            try {
+                line = inputReader.readLine();
+            } catch (IOException e) {
+                System.out.println("读取输入失败: " + e.getMessage());
+                break;
+            }
+            if (line == null) {
+                break;
+            }
+            String input = line.trim();
 
             if (input.isEmpty()) continue;
             if (input.equalsIgnoreCase("exit")) break;
             if (input.equalsIgnoreCase("clear")) {
                 agent.clearHistory();
+                hitlHandler.clearApprovedAll();
                 System.out.println("🗑️ 历史已清空\n");
                 continue;
             }
@@ -130,6 +152,13 @@ public class Main {
     private record AppConfig(String provider, Map<String, String> values) {
         String get(String key) {
             return values.getOrDefault(key, "").trim();
+        }
+
+        boolean hitlEnabled() {
+            String value = values.getOrDefault("HITL_ENABLED", "true").trim();
+            return !"false".equalsIgnoreCase(value)
+                    && !"0".equals(value)
+                    && !"no".equalsIgnoreCase(value);
         }
     }
 

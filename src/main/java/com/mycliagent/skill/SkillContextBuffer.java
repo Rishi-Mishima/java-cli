@@ -1,11 +1,32 @@
 package com.mycliagent.skill;
 
 public class SkillContextBuffer {
+    private final StringBuilder buffer = new StringBuilder();
+
     public boolean isEmpty() {
-        return false;
+        return buffer.isEmpty();
+    }
+
+    public void push(String name, String body) {
+        if (body == null || body.isBlank()) {
+            return;
+        }
+        if (!buffer.isEmpty()) {
+            buffer.append("\n\n");
+        }
+        buffer.append("## 已加载 Skill：")
+                .append(name == null || name.isBlank() ? "unknown" : name)
+                .append("\n\n")
+                .append(body);
     }
 
     public String drain() {
-        return "";
+        String value = buffer.toString();
+        clear();
+        return value;
+    }
+
+    public void clear() {
+        buffer.setLength(0);
     }
 }

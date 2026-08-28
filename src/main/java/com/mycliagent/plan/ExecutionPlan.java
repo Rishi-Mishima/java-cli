@@ -160,6 +160,16 @@ public class ExecutionPlan {
         this.endTime = System.currentTimeMillis();
     }
 
+    public void markFailed() {
+        this.status = PlanStatus.FAILED;
+        this.endTime = System.currentTimeMillis();
+    }
+
+    public boolean isAllCompleted() {
+        return !tasks.isEmpty() && tasks.values().stream()
+                .allMatch(t -> t.getStatus() == Task.TaskStatus.COMPLETED);
+    }
+
     /**
      * 获取执行进度
      */

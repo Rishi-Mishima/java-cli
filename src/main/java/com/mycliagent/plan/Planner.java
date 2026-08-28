@@ -10,6 +10,7 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Supplier;
 
 
 
@@ -17,10 +18,15 @@ public class Planner {
     // 面向接口,而不是具体实现
     private final LlmClient llmClient;
     private final ObjectMapper mapper;
+    private Supplier<String> projectMemorySupplier = () -> "";
 
     public Planner(LlmClient llmClient) {
         this.llmClient = llmClient;
         this.mapper = new ObjectMapper();
+    }
+
+    public void setProjectMemorySupplier(Supplier<String> projectMemorySupplier) {
+        this.projectMemorySupplier = projectMemorySupplier == null ? () -> "" : projectMemorySupplier;
     }
 
 

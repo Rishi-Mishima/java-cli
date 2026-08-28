@@ -18,7 +18,6 @@ import com.mycliagent.runtime.CancellationContext;
 import com.mycliagent.skill.Skill;
 import com.mycliagent.skill.SkillContextBuffer;
 import com.mycliagent.skill.SkillRegistry;
-import org.eclipse.jgit.transport.FetchResult;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -1005,9 +1004,9 @@ public class ToolRegistry {
     /**
      * 获取所有工具定义（用于LLM）
      */
-    public List<com.paicli.llm.LlmClient.Tool> getToolDefinitions() {
+    public List<LlmClient.Tool> getToolDefinitions() {
         return tools.values().stream()
-                .map(t -> new com.paicli.llm.LlmClient.Tool(t.name(), t.description(), t.parameters()))
+                .map(t -> new LlmClient.Tool(t.name(), t.description(), t.parameters()))
                 .toList();
     }
 
@@ -1357,44 +1356,18 @@ public class ToolRegistry {
 
     private record McpRegisteredTool(McpToolDescriptor descriptor, Function<String, ToolOutput> invoker) {}
 
-    public record ToolInvocation(String id, String name, String argumentsJson) {}
-
-    public record ToolExecutionResult(String id, String name, String argumentsJson,
-                                      String result, long elapsedMillis, boolean timedOut,
-                                      List<com.paicli.llm.LlmClient.ContentPart> imageParts) {
-        private static ToolExecutionResult completed(ToolInvocation invocation, ToolOutput output, long elapsedMillis) {
-            return new ToolExecutionResult(
-                    invocation.id(),
-                    invocation.name(),
-                    invocation.argumentsJson(),
-                    output == null ? "" : output.text(),
-                    elapsedMillis,
-                    false,
-                    output == null ? List.of() : output.imageParts());
-        }
-
-        private static ToolExecutionResult completed(ToolInvocation invocation, String result, long elapsedMillis) {
-            return completed(invocation, ToolOutput.text(result), elapsedMillis);
-        }
-
-        private static ToolExecutionResult failed(ToolInvocation invocation, String message) {
-            return completed(invocation, "工具执行失败: " + message, 0);
-        }
-
-        private static ToolExecutionResult timedOut(ToolInvocation invocation, long timeoutSeconds) {
-            return new ToolExecutionResult(
-                    invocation.id(),
-                    invocation.name(),
-                    invocation.argumentsJson(),
-                    "工具执行超时（" + timeoutSeconds + "秒），已取消",
-                    timeoutSeconds * 1000,
-                    true,
-                    List.of()
-            );
-        }
-
-        public boolean hasImageParts() {
-            return imageParts != null && !imageParts.isEmpty();
+    private record FetchResult(String url, String title, String markdown, int contentLength,
+                               boolean truncated, boolean bodyEmpty, String hint) {
+        static FetchResult ok(String url, String title, String markdown, int contentLength, boolean truncated) {
+            String body = markdown == null ? "" : markdown;
+            return new FetchResult(
+                    url == null ? "" : url,
+                    title == null ? "" : title,
+                    body,
+                    contentLength,
+                    truncated,
+                    body.isBlank(),
+                    body.isBlank() ? "页面正文为空，可能需要登录、JavaScript 渲染或被站点拦截。" : "");
         }
     }
 

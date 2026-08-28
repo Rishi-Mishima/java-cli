@@ -56,8 +56,26 @@ public class TokenBudget {
         return estimatedTokens <= getAvailableForConversation();
     }
 
-    private static int estimateMessagesTokens(List<LlmClient.Message> messages) {
-        return 1;
+    public static int estimateMessagesTokens(List<LlmClient.Message> messages) {
+        if (messages == null || messages.isEmpty()) {
+            return 0;
+        }
+        int total = 0;
+        for (LlmClient.Message message : messages) {
+            if (message == null) {
+                continue;
+            }
+            total += MemoryEntry.estimateTokens(message.role());
+            total += MemoryEntry.estimateTokens(message.content());
+            total += MemoryEntry.estimateTokens(message.reasoningContent());
+            if (message.toolCalls() != null) {
+                total += MemoryEntry.estimateTokens(message.toolCalls().toString());
+            }
+            if (message.contentParts() != null) {
+                total += MemoryEntry.estimateTokens(message.contentParts().toString());
+            }
+        }
+        return Math.max(1, total);
     }
 
 

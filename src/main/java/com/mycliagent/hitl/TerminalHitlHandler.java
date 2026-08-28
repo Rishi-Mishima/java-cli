@@ -49,7 +49,7 @@ public class TerminalHitlHandler implements HitlHandler{
     /**
      * 包可见构造器：允许测试注入自定义 stdin / stdout。
      */
-    TerminalHitlHandler(boolean enabled, BufferedReader in, PrintStream out) {
+    public TerminalHitlHandler(boolean enabled, BufferedReader in, PrintStream out) {
         this.enabled = enabled;
         this.in = in;
         this.out = out;

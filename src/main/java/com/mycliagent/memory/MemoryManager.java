@@ -25,10 +25,10 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class MemoryManager {
     private final ConversationMemory shortTermMemory;
     private final LongTermMemory longTermMemory;
-    private final ContextCompressor compressor;
-    private final MemoryRetriever retriever;
+    private ContextCompressor compressor;
+    private MemoryRetriever retriever;
     private final TokenBudget tokenBudget;
-    private final ContextProfile contextProfile;
+    private ContextProfile contextProfile;
     private String projectPath = System.getProperty("user.dir");
 
     public MemoryManager(LlmClient llmClient) {
@@ -64,6 +64,10 @@ public class MemoryManager {
         addConversationMessage("assistant", content);
     }
 
+    public void addToolResult(String toolName, String content) {
+        addConversationMessage("tool:" + (toolName == null ? "unknown" : toolName), content);
+    }
+
     private void addConversationMessage(String source, String content) {
         String safeContent = content == null ? "" : content;
         MemoryEntry entry = new MemoryEntry(
@@ -91,6 +95,22 @@ public class MemoryManager {
                 MemoryEntry.estimateTokens(fact)
         );
         longTermMemory.store(entry);
+    }
+
+    public void storeFact(String fact, String scope) {
+        storeFact(fact);
+    }
+
+    public void setLlmClient(LlmClient llmClient) {
+        this.contextProfile = ContextProfile.from(llmClient);
+    }
+
+    public void recordTokenUsage(int inputTokens, int outputTokens, int cachedInputTokens) {
+        tokenBudget.recordUsage(inputTokens, outputTokens);
+    }
+
+    public void clearShortTerm() {
+        shortTermMemory.clear();
     }
 
     // 检索相关记忆

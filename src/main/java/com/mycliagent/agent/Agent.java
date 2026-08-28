@@ -10,6 +10,9 @@ import com.mycliagent.prompt.ProjectMemoryLoader;
 import com.mycliagent.prompt.PromptAssembler;
 import com.mycliagent.prompt.PromptContext;
 import com.mycliagent.prompt.PromptMode;
+import com.mycliagent.render.PlainRenderer;
+import com.mycliagent.render.Renderer;
+import com.mycliagent.render.StatusInfo;
 import com.mycliagent.runtime.CancellationContext;
 import com.mycliagent.skill.SkillContextBuffer;
 import com.mycliagent.skill.SkillIndexFormatter;
@@ -19,7 +22,6 @@ import com.mycliagent.util.AnsiStyle;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import javax.swing.*;
 import java.io.IOException;
 import java.io.PrintStream;
 import java.nio.file.Path;
@@ -422,7 +424,7 @@ public class Agent {
     }
 
     public String getContextStatus() {
-        com.paicli.context.ContextProfile profile = memoryManager.getContextProfile();
+        ContextProfile profile = memoryManager.getContextProfile();
         int window = profile.maxContextWindow();
         int triggerTokens = profile.compressionTriggerTokens();
 
@@ -430,7 +432,7 @@ public class Agent {
         int systemTokens = 0, userTokens = 0, assistantTokens = 0, toolTokens = 0;
         int systemCount = 0, userCount = 0, assistantCount = 0, toolCount = 0;
         for (LlmClient.Message msg : conversationHistory) {
-            int t = com.paicli.memory.TokenBudget.estimateMessagesTokens(java.util.List.of(msg));
+            int t = TokenBudget.estimateMessagesTokens(java.util.List.of(msg));
             switch (msg.role()) {
                 case "system" -> { systemTokens += t; systemCount++; }
                 case "user" -> { userTokens += t; userCount++; }
@@ -478,7 +480,7 @@ public class Agent {
 
     private int estimateToolsSchemaTokens() {
         try {
-            return com.paicli.memory.MemoryEntry.estimateTokens(
+            return MemoryEntry.estimateTokens(
                     new ObjectMapper().writeValueAsString(toolRegistry.getToolDefinitions()));
         } catch (Exception e) {
             return 0;
@@ -486,7 +488,7 @@ public class Agent {
     }
 
     private long estimateCurrentContextTokens() {
-        long messageTokens = com.paicli.memory.TokenBudget.estimateMessagesTokens(conversationHistory);
+        long messageTokens = TokenBudget.estimateMessagesTokens(conversationHistory);
         return Math.max(0L, messageTokens + estimateToolsSchemaTokens());
     }
 
@@ -504,7 +506,7 @@ public class Agent {
         for (int messageIndex = 0; messageIndex < conversationHistory.size(); messageIndex++) {
             LlmClient.Message msg = conversationHistory.get(messageIndex);
             messages++;
-            int tokens = com.paicli.memory.TokenBudget.estimateMessagesTokens(List.of(msg));
+            int tokens = TokenBudget.estimateMessagesTokens(List.of(msg));
             imageParts += msg.imagePartCount();
             appendImageDetails(imageDetails, msg, messageIndex);
             switch (msg.role()) {
@@ -520,7 +522,7 @@ public class Agent {
         int toolCount = tools == null ? 0 : tools.size();
         if (tools != null && !tools.isEmpty()) {
             try {
-                toolsSchemaTokens = com.paicli.memory.MemoryEntry.estimateTokens(
+                toolsSchemaTokens = MemoryEntry.estimateTokens(
                         new ObjectMapper().writeValueAsString(tools));
             } catch (Exception e) {
                 log.debug("Failed to estimate tools schema tokens", e);
