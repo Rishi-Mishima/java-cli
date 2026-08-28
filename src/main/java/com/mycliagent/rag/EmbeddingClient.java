@@ -6,6 +6,8 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import okhttp3.*;
 
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -146,7 +148,35 @@ public class EmbeddingClient {
         if (value != null && !value.isEmpty()) {
             return value;
         }
+        value = getDotenvValue(key);
+        if (value != null && !value.isEmpty()) {
+            return value;
+        }
         return defaultValue;
+    }
+
+    private static String getDotenvValue(String key) {
+        Path envFile = Path.of(".env");
+        if (!Files.exists(envFile)) {
+            return null;
+        }
+        try {
+            for (String line : Files.readAllLines(envFile)) {
+                String trimmed = line.trim();
+                if (trimmed.isEmpty() || trimmed.startsWith("#") || !trimmed.contains("=")) {
+                    continue;
+                }
+                int separator = trimmed.indexOf('=');
+                String name = trimmed.substring(0, separator).trim();
+                if (!key.equals(name)) {
+                    continue;
+                }
+                return trimmed.substring(separator + 1).trim().replaceAll("^['\"]|['\"]$", "");
+            }
+        } catch (IOException ignored) {
+            return null;
+        }
+        return null;
     }
 
     public String getProvider() {

@@ -10,6 +10,7 @@ import com.mycliagent.agent.ToolInvocation;
 import com.mycliagent.context.ContextProfile;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.rag.CodeRetriever;
+import com.mycliagent.rag.SearchResultFormatter;
 import com.mycliagent.rag.VectorStore;
 
 import java.io.BufferedReader;
@@ -80,6 +81,7 @@ public class ToolRegistry {
         this.mapper = new ObjectMapper();
         registerFileTools();
         registerShellTools();
+        registerRagTools();
     }
 
     // 把所有文件相关的工具放进 tools 里面。

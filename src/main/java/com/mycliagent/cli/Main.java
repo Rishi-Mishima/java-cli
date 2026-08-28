@@ -5,6 +5,9 @@ import com.mycliagent.agent.AgentOrchestrator;
 import com.mycliagent.llm.GLMClient;
 import com.mycliagent.llm.LlmClient;
 import com.mycliagent.llm.MockLlmClient;
+import com.mycliagent.rag.CodeIndex;
+import com.mycliagent.rag.CodeRetriever;
+import com.mycliagent.rag.SearchResultFormatter;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,7 +31,7 @@ public class Main {
         // 读取终端输入
         Scanner scanner = new Scanner(System.in);
         System.out.printf("✅ Provider: %s (%s)%n", llmClient.getProviderName(), llmClient.getModelName());
-        System.out.println("💡 提示: 输入 'clear' 清空历史, 'exit' 退出, '/multi 任务' 启动多 Agent\n");
+        System.out.println("💡 提示: 输入 'clear' 清空历史, 'exit' 退出, '/multi 任务' 启动多 Agent, '/index' 索引当前项目, '/search 查询' 检索代码\n");
 
         while (true) {
             System.out.print("👤 你: ");
@@ -39,6 +42,31 @@ public class Main {
             if (input.equalsIgnoreCase("clear")) {
                 agent.clearHistory();
                 System.out.println("🗑️ 历史已清空\n");
+                continue;
+            }
+            if (input.equalsIgnoreCase("/index")) {
+                CodeIndex.IndexResult result = new CodeIndex(System.out::println)
+                        .index(System.getProperty("user.dir"));
+                System.out.println(result.message() + "\n");
+                continue;
+            }
+            if (input.startsWith("/search ")) {
+                String query = input.substring("/search ".length()).trim();
+                if (query.isEmpty()) {
+                    System.out.println("请输入搜索内容，例如: /search 记忆检索怎么实现\n");
+                    continue;
+                }
+                try (CodeRetriever retriever = new CodeRetriever(System.getProperty("user.dir"))) {
+                    var stats = retriever.getStats();
+                    if (stats.chunkCount() == 0) {
+                        System.out.println("代码库尚未索引，请先执行 /index\n");
+                    } else {
+                        System.out.println(SearchResultFormatter.formatForCli(
+                                query, retriever.hybridSearch(query, 5)) + "\n");
+                    }
+                } catch (Exception e) {
+                    System.out.println("代码检索失败: " + e.getMessage() + "\n");
+                }
                 continue;
             }
 
