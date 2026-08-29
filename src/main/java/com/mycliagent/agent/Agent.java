@@ -33,7 +33,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
-
 /**
  * Agent 核心类 - 实现 ReAct 循环
  */
@@ -424,7 +423,7 @@ public class Agent {
     }
 
     public String getContextStatus() {
-        ContextProfile profile = memoryManager.getContextProfile();
+        com.mycliagent.context.ContextProfile profile = memoryManager.getContextProfile();
         int window = profile.maxContextWindow();
         int triggerTokens = profile.compressionTriggerTokens();
 
@@ -432,7 +431,7 @@ public class Agent {
         int systemTokens = 0, userTokens = 0, assistantTokens = 0, toolTokens = 0;
         int systemCount = 0, userCount = 0, assistantCount = 0, toolCount = 0;
         for (LlmClient.Message msg : conversationHistory) {
-            int t = TokenBudget.estimateMessagesTokens(java.util.List.of(msg));
+            int t = com.mycliagent.memory.TokenBudget.estimateMessagesTokens(java.util.List.of(msg));
             switch (msg.role()) {
                 case "system" -> { systemTokens += t; systemCount++; }
                 case "user" -> { userTokens += t; userCount++; }
@@ -480,7 +479,7 @@ public class Agent {
 
     private int estimateToolsSchemaTokens() {
         try {
-            return MemoryEntry.estimateTokens(
+            return com.mycliagent.memory.MemoryEntry.estimateTokens(
                     new ObjectMapper().writeValueAsString(toolRegistry.getToolDefinitions()));
         } catch (Exception e) {
             return 0;
@@ -488,7 +487,7 @@ public class Agent {
     }
 
     private long estimateCurrentContextTokens() {
-        long messageTokens = TokenBudget.estimateMessagesTokens(conversationHistory);
+        long messageTokens = com.mycliagent.memory.TokenBudget.estimateMessagesTokens(conversationHistory);
         return Math.max(0L, messageTokens + estimateToolsSchemaTokens());
     }
 
@@ -506,7 +505,7 @@ public class Agent {
         for (int messageIndex = 0; messageIndex < conversationHistory.size(); messageIndex++) {
             LlmClient.Message msg = conversationHistory.get(messageIndex);
             messages++;
-            int tokens = TokenBudget.estimateMessagesTokens(List.of(msg));
+            int tokens = com.mycliagent.memory.TokenBudget.estimateMessagesTokens(List.of(msg));
             imageParts += msg.imagePartCount();
             appendImageDetails(imageDetails, msg, messageIndex);
             switch (msg.role()) {
@@ -522,7 +521,7 @@ public class Agent {
         int toolCount = tools == null ? 0 : tools.size();
         if (tools != null && !tools.isEmpty()) {
             try {
-                toolsSchemaTokens = MemoryEntry.estimateTokens(
+                toolsSchemaTokens = com.mycliagent.memory.MemoryEntry.estimateTokens(
                         new ObjectMapper().writeValueAsString(tools));
             } catch (Exception e) {
                 log.debug("Failed to estimate tools schema tokens", e);

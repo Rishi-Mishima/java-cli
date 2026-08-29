@@ -431,7 +431,7 @@ public class SubAgent {
     /**
      * SubAgent 流式渲染器，分区展示 reasoning_content 与 content。
      *
-     * 与 {@link com.paicli.agent.Agent.StreamRenderer} 使用同一策略应对
+     *
      * "content 开始后又追加 reasoning"的场景：迟到的 reasoning 会被累积到 lateReasoning，
      * 在 finish() 时以"🧠 补充思考"独立展示，避免混入结果区。
      */
