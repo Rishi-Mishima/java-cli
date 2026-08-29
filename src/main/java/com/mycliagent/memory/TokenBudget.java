@@ -84,13 +84,13 @@ public class TokenBudget {
                 > getAvailableForConversation() * 0.8;
     }
 
-    public void recordUsage(int inputTokens, int outputTokens) {
+    public synchronized void recordUsage(int inputTokens, int outputTokens) {
         totalInputTokens += inputTokens;
         totalOutputTokens += outputTokens;
         llmCallCount++;
     }
 
-    public String getUsageReport() {
+    public synchronized String getUsageReport() {
         return String.format(
                 "Token 统计: 调用 %d 次 | 总输入: %d | 总输出: %d",
                 llmCallCount, totalInputTokens, totalOutputTokens);

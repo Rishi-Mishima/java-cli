@@ -34,7 +34,11 @@ public class MockLlmClient implements LlmClient {
         String systemPrompt = messages.isEmpty() ? "" : messages.get(0).content();
 
         if (systemPrompt != null && systemPrompt.contains("规划者")) {
-            return new ChatResponse("assistant", createMockPlan(input), List.of(), 0, 0);
+            return new ChatResponse("assistant", createMockPlan(input, "steps"), List.of(), 0, 0);
+        }
+
+        if (systemPrompt != null && systemPrompt.contains("任务规划器")) {
+            return new ChatResponse("assistant", createMockPlan(input, "tasks"), List.of(), 0, 0);
         }
 
         if (systemPrompt != null && systemPrompt.contains("审查者")) {
@@ -71,7 +75,7 @@ public class MockLlmClient implements LlmClient {
         return new ChatResponse("assistant", "", List.of(toolCall), 0, 0);
     }
 
-    private String createMockPlan(String input) {
+    private String createMockPlan(String input, String arrayFieldName) {
         String task = input == null ? "" : input.trim();
         int marker = task.lastIndexOf("请为以下任务制定执行计划：");
         if (marker >= 0) {
@@ -79,12 +83,37 @@ public class MockLlmClient implements LlmClient {
         }
 
         ObjectNode root = MAPPER.createObjectNode();
-        ArrayNode steps = root.putArray("steps");
-        ObjectNode step = steps.addObject();
-        step.put("id", "step_1");
-        step.put("description", "完成用户任务：" + task);
-        step.put("type", "COMMAND");
-        step.putArray("dependencies");
+        if ("tasks".equals(arrayFieldName)) {
+            root.put("summary", "Mock 执行计划");
+        }
+        ArrayNode steps = root.putArray(arrayFieldName);
+        if (containsAny(task.toLowerCase(Locale.ROOT), "并发", "并行", "multi", "parallel")) {
+            ObjectNode first = steps.addObject();
+            first.put("id", "tasks".equals(arrayFieldName) ? "task_1" : "step_1");
+            first.put("description", "并行子任务A：" + task);
+            first.put("type", "ANALYSIS");
+            first.putArray("dependencies");
+
+            ObjectNode second = steps.addObject();
+            second.put("id", "tasks".equals(arrayFieldName) ? "task_2" : "step_2");
+            second.put("description", "并行子任务B：" + task);
+            second.put("type", "ANALYSIS");
+            second.putArray("dependencies");
+
+            ObjectNode merge = steps.addObject();
+            merge.put("id", "tasks".equals(arrayFieldName) ? "task_3" : "step_3");
+            merge.put("description", "汇总并行子任务结果：" + task);
+            merge.put("type", "ANALYSIS");
+            ArrayNode dependencies = merge.putArray("dependencies");
+            dependencies.add("tasks".equals(arrayFieldName) ? "task_1" : "step_1");
+            dependencies.add("tasks".equals(arrayFieldName) ? "task_2" : "step_2");
+        } else {
+            ObjectNode step = steps.addObject();
+            step.put("id", "tasks".equals(arrayFieldName) ? "task_1" : "step_1");
+            step.put("description", "完成用户任务：" + task);
+            step.put("type", "COMMAND");
+            step.putArray("dependencies");
+        }
         return root.toString();
     }
 
@@ -106,6 +135,10 @@ public class MockLlmClient implements LlmClient {
                     Mock 模式已完成 read_file 工具调用。
                     项目摘要：MyCliAgent 是一个 Java CLI AI Agent，用于演示 ReAct 工具调用、LLM provider 抽象、短期/长期记忆，以及 Plan-and-Execute 任务规划原型。
                     """;
+        }
+
+        if (observation.startsWith("文件内容:")) {
+            return "Mock 模式已完成 read_file 工具调用，文件结果如下：\n" + observation;
         }
 
         if (containsAny(normalizedUserMessage, "目录", "列出", "list")) {

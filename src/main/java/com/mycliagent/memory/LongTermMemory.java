@@ -58,7 +58,7 @@ public class LongTermMemory implements Memory {
 
 
     @Override
-    public void store(MemoryEntry entry) {
+    public synchronized void store(MemoryEntry entry) {
         // 去重检查：内容完全相同则跳过
         Optional<Map.Entry<String, MemoryEntry>> existing = entries.entrySet().stream()
                 .filter(e -> e.getValue().getContent().equals(entry.getContent()))
@@ -71,12 +71,12 @@ public class LongTermMemory implements Memory {
     }
 
     @Override
-    public List<MemoryEntry> getAll() {
+    public synchronized List<MemoryEntry> getAll() {
         return new ArrayList<>(entries.values());
     }
 
     @Override
-    public boolean delete(String id) {
+    public synchronized boolean delete(String id) {
         MemoryEntry removed = entries.remove(id);
         if (removed == null) {
             return false;
@@ -87,7 +87,7 @@ public class LongTermMemory implements Memory {
     }
 
     @Override
-    public void clear() {
+    public synchronized void clear() {
         entries.clear();
         tokenCounter.set(0);
         saveToDisk();
@@ -109,12 +109,12 @@ public class LongTermMemory implements Memory {
     }
 
     @Override
-    public Optional<MemoryEntry> retrieve(String id) {
+    public synchronized Optional<MemoryEntry> retrieve(String id) {
         return Optional.ofNullable(entries.get(id));
     }
 
     @Override
-    public List<MemoryEntry> search(String query, int limit) {
+    public synchronized List<MemoryEntry> search(String query, int limit) {
         // 把查询分词
         Set<String> queryTokens = MemoryQueryTokenizer.tokenize(query);
 
@@ -231,7 +231,7 @@ public class LongTermMemory implements Memory {
     /**
      * 生成记忆状态摘要
      */
-    public String getStatusSummary() {
+    public synchronized String getStatusSummary() {
         Map<MemoryEntry.MemoryType, Long> typeCounts = entries.values().stream()
                 .collect(Collectors.groupingBy(MemoryEntry::getType, Collectors.counting()));
 

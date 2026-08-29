@@ -11,9 +11,9 @@ public class Task {
     private final String id;              // 任务唯一标识
     private final String description;     // 任务描述
     private final TaskType type;          // 任务类型
-    private TaskStatus status;            // 执行状态
-    private String result;                // 执行结果
-    private String error;                 // 错误信息
+    private volatile TaskStatus status;   // 执行状态
+    private volatile String result;       // 执行结果
+    private volatile String error;        // 错误信息
     private final List<String> dependencies;  // 依赖的任务ID
     private final List<String> dependents;    // 被依赖的任务ID
     private volatile long startTime;
@@ -60,12 +60,12 @@ public class Task {
         return error;
     }
 
-    public List<String> getDependents() {
-        return dependents;
+    public synchronized List<String> getDependents() {
+        return new ArrayList<>(dependents);
     }
 
-    public List<String> getDependencies() {
-        return dependencies;
+    public synchronized List<String> getDependencies() {
+        return new ArrayList<>(dependencies);
     }
 
     public long getStartTime() {
@@ -79,17 +79,17 @@ public class Task {
 
 
     // Setters
-    public void setStatus(TaskStatus status) { this.status = status; }
-    public void setResult(String result) { this.result = result; }
-    public void setError(String error) { this.error = error; }
+    public synchronized void setStatus(TaskStatus status) { this.status = status; }
+    public synchronized void setResult(String result) { this.result = result; }
+    public synchronized void setError(String error) { this.error = error; }
 
-    public void addDependent(String taskId) {
+    public synchronized void addDependent(String taskId) {
         if (!dependents.contains(taskId)) {
             dependents.add(taskId);
         }
     }
 
-    public void addDependency(String taskId) {
+    public synchronized void addDependency(String taskId) {
         if (!dependencies.contains(taskId)) {
             dependencies.add(taskId);
         }
@@ -106,18 +106,18 @@ public class Task {
 
 
     /** 生命周期 **/
-    public void markStarted() {
+    public synchronized void markStarted() {
         this.status = TaskStatus.RUNNING;
         this.startTime = System.currentTimeMillis();
     }
 
-    public void markCompleted(String result) {
+    public synchronized void markCompleted(String result) {
         this.status = TaskStatus.COMPLETED;
         this.result = result;
         this.endTime = System.currentTimeMillis();
     }
 
-    public void markFailed(String error) {
+    public synchronized void markFailed(String error) {
         this.status = TaskStatus.FAILED;
         this.error = error;
         this.endTime = System.currentTimeMillis();
@@ -137,7 +137,7 @@ public class Task {
         // 只有Task是Pending, 等待执行的时候, 才能执行, 剩下都不可
         if (status != TaskStatus.PENDING) return false;
         //遍历所有依赖
-        for(String depId: dependencies){
+        for(String depId: getDependencies()){
             Task dep = allTasks.get(depId);
             if(dep == null || dep.getStatus() != TaskStatus.COMPLETED){
                 return false;

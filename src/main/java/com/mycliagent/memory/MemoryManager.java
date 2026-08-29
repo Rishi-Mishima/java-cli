@@ -28,8 +28,8 @@ public class MemoryManager {
     private ContextCompressor compressor;
     private MemoryRetriever retriever;
     private final TokenBudget tokenBudget;
-    private ContextProfile contextProfile;
-    private String projectPath = System.getProperty("user.dir");
+    private volatile ContextProfile contextProfile;
+    private volatile String projectPath = System.getProperty("user.dir");
 
     public MemoryManager(LlmClient llmClient) {
         this(createShortTermMemory(ContextProfile.from(llmClient)),
@@ -68,7 +68,7 @@ public class MemoryManager {
         addConversationMessage("tool:" + (toolName == null ? "unknown" : toolName), content);
     }
 
-    private void addConversationMessage(String source, String content) {
+    private synchronized void addConversationMessage(String source, String content) {
         String safeContent = content == null ? "" : content;
         MemoryEntry entry = new MemoryEntry(
                 source + "-" + UUID.randomUUID().toString().substring(0, 8),
@@ -82,7 +82,7 @@ public class MemoryManager {
         compressIfNeeded();  // 自动检查是否需要压缩
     }
 
-    public void storeFact(String fact) {
+    public synchronized void storeFact(String fact) {
         if (fact == null || fact.isBlank()) {
             return;
         }
@@ -101,7 +101,7 @@ public class MemoryManager {
         storeFact(fact);
     }
 
-    public void setLlmClient(LlmClient llmClient) {
+    public synchronized void setLlmClient(LlmClient llmClient) {
         this.contextProfile = ContextProfile.from(llmClient);
     }
 
@@ -109,7 +109,7 @@ public class MemoryManager {
         tokenBudget.recordUsage(inputTokens, outputTokens);
     }
 
-    public void clearShortTerm() {
+    public synchronized void clearShortTerm() {
         shortTermMemory.clear();
     }
 

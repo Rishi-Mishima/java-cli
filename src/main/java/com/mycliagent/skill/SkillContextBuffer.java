@@ -3,11 +3,11 @@ package com.mycliagent.skill;
 public class SkillContextBuffer {
     private final StringBuilder buffer = new StringBuilder();
 
-    public boolean isEmpty() {
+    public synchronized boolean isEmpty() {
         return buffer.isEmpty();
     }
 
-    public void push(String name, String body) {
+    public synchronized void push(String name, String body) {
         if (body == null || body.isBlank()) {
             return;
         }
@@ -20,13 +20,13 @@ public class SkillContextBuffer {
                 .append(body);
     }
 
-    public String drain() {
+    public synchronized String drain() {
         String value = buffer.toString();
         clear();
         return value;
     }
 
-    public void clear() {
+    public synchronized void clear() {
         buffer.setLength(0);
     }
 }

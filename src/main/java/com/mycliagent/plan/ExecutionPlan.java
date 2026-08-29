@@ -2,18 +2,18 @@ package com.mycliagent.plan;
 
 import java.util.*;
 
+/**
+ * 执行计划 - 包含一组有依赖关系的任务
+ */
 public class ExecutionPlan {
     private final String id;
-    private final String goal;           // 计划目标
-
-
-
-    private final Map<String, Task> tasks;  // 所有任务
-    private final List<String> executionOrder;  // 执行顺序
-    private PlanStatus status;
-    private String summary;
-    private long startTime;
-    private long endTime;
+    private final String goal;                    // 计划目标
+    private final Map<String, Task> tasks;        // 所有任务
+    private final List<String> executionOrder;    // 执行顺序（拓扑排序后）
+    private volatile PlanStatus status;
+    private volatile String summary;              // 计划摘要
+    private volatile long startTime;
+    private volatile long endTime;
 
     public enum PlanStatus {
         CREATED,      // 刚创建
@@ -26,7 +26,7 @@ public class ExecutionPlan {
     public ExecutionPlan(String id, String goal) {
         this.id = id;
         this.goal = goal;
-        this.tasks = new LinkedHashMap<>(); // 保持插入顺序
+        this.tasks = new LinkedHashMap<>();  // 保持插入顺序
         this.executionOrder = new ArrayList<>();
         this.status = PlanStatus.CREATED;
     }
@@ -39,40 +39,50 @@ public class ExecutionPlan {
     public long getStartTime() { return startTime; }
     public long getEndTime() { return endTime; }
 
-    //setters
-    public void setSummary(String summary) { this.summary = summary; }
-    public void setStatus(PlanStatus status) { this.status = status; }
+    public synchronized void setSummary(String summary) { this.summary = summary; }
+    public synchronized void setStatus(PlanStatus status) { this.status = status; }
 
-    public void addTask(Task task) {
+    /**
+     * 添加任务
+     */
+    public synchronized void addTask(Task task) {
         tasks.put(task.getId(), task);
+        // 更新依赖关系
+        for (String depId : task.getDependencies()) {
+            Task dep = tasks.get(depId);
+            if (dep != null) {
+                dep.addDependent(task.getId());
+            }
+        }
     }
 
-    // 获取任务
-    public Task getTask(String id) {
+    /**
+     * 获取任务
+     */
+    public synchronized Task getTask(String id) {
         return tasks.get(id);
     }
 
-    //获取所有任务
-    public Collection<Task> getAllTasks() {
-        return tasks.values();
+    /**
+     * 获取所有任务
+     */
+    public synchronized Collection<Task> getAllTasks() {
+        return new ArrayList<>(tasks.values());
     }
-
-
 
     /**
      * 获取根任务（没有依赖的任务）
      */
-    public List<Task> getRootTasks() {
+    public synchronized List<Task> getRootTasks() {
         return tasks.values().stream()
                 .filter(t -> t.getDependencies().isEmpty())
                 .toList();
     }
 
-
     /**
      * 获取可执行的任务（依赖都已完成）
      */
-    public List<Task> getExecutableTasks() {
+    public synchronized List<Task> getExecutableTasks() {
         return tasks.values().stream()
                 .filter(t -> t.isExecutable(tasks))
                 .toList();
@@ -81,20 +91,14 @@ public class ExecutionPlan {
     /**
      * 计算拓扑排序执行顺序
      */
-    public boolean computeExecutionOrder() {
-        // 每次计算之前, 都要清空之前的执行顺序
+    public synchronized boolean computeExecutionOrder() {
+
         executionOrder.clear();
-        // visited表示已经彻底处理完的任务: 已经被DFS处理完, 加入了拓扑结果
-        //注意，这里的“处理完成”不是说任务已经真正运行完成。 - 只是说拓扑检查了这个节点
         Set<String> visited = new HashSet<>();
-        // 当前这条递归路径中，正在访问、但还没有处理完成的任务。 - 检测环
         Set<String> visiting = new HashSet<>();
 
-        // 遍历所有任务
         for (Task task : tasks.values()) {
-            // 已经处理过的就跳过 - 只有当前任务还没有被彻底处理过，才需要进行 DFS。
             if (!visited.contains(task.getId())) {
-                //有环的任务无法得到合法执行顺序
                 if (!topologicalSort(task, visited, visiting)) {
                     return false;  // 有环
                 }
@@ -104,96 +108,37 @@ public class ExecutionPlan {
         return true;
     }
 
-    // 拓扑排序
     private boolean topologicalSort(Task task, Set<String> visited, Set<String> visiting) {
-       // 获取当前任务的ID
         String id = task.getId();
 
         if (visiting.contains(id)) {
-            return false;  // 有环，排序失败
+            return false;  // 有环
         }
         if (visited.contains(id)) {
             return true;
         }
 
-        //标记当前任务正在访问
         visiting.add(id);
 
-        // 递归处理所有依赖
         for (String depId : task.getDependencies()) {
-            //依赖ID
             Task dep = tasks.get(depId);
             if (dep != null) {
                 if (!topologicalSort(dep, visited, visiting)) {
                     return false;
                 }
-            }else throw new IllegalStateException(
-                    "Missing dependency: " + depId
-            );
+            }
         }
 
-        // 处理完成后移除
         visiting.remove(id);
-        // 标记为彻底处理完成
         visited.add(id);
-        // 加入执行顺序: - 递归处理完所有依赖之后, 这个顺序可以直接执行
         executionOrder.add(id);
         return true;
-    }
-
-    /*
-     * 这三个方法是在管理整个 Plan 的生命周期，以及检查计划里的任务有没有失败。
-     */
-
-    //整个计划开始执行了。
-    public void markStarted() {
-        // 把计划状态改成running
-        this.status = PlanStatus.RUNNING;
-        // 记录当前时间。 - 从 1970 年 1 月 1 日到现在经过的毫秒数。
-        this.startTime = System.currentTimeMillis();
-    }
-
-    //计划已完成
-    public void markCompleted() {
-        this.status = PlanStatus.COMPLETED;
-        //记录结束时间。
-        this.endTime = System.currentTimeMillis();
-    }
-
-    public void markFailed() {
-        this.status = PlanStatus.FAILED;
-        this.endTime = System.currentTimeMillis();
-    }
-
-    public boolean isAllCompleted() {
-        return !tasks.isEmpty() && tasks.values().stream()
-                .allMatch(t -> t.getStatus() == Task.TaskStatus.COMPLETED);
-    }
-
-    /**
-     * 获取执行进度
-     */
-    public double getProgress() {
-        if (tasks.isEmpty()) return 1.0;
-        long completed = tasks.values().stream()
-                .filter(t -> t.getStatus() == Task.TaskStatus.COMPLETED)
-                .count();
-        return (double) completed / tasks.size();
-    }
-
-    //计划中的所有任务里，有没有任何一个任务失败
-    // 只要有一个失败 就返回True
-    public boolean hasFailed() {
-        // 用stream: 让 Java 按顺序检查这一批对象
-        //t 代表当前正在检查的某个任务。
-        return tasks.values().stream()
-                .anyMatch(t -> t.getStatus() == Task.TaskStatus.FAILED);
     }
 
     /**
      * 获取执行顺序
      */
-    public List<String> getExecutionOrder() {
+    public synchronized List<String> getExecutionOrder() {
         if (executionOrder.isEmpty()) {
             computeExecutionOrder();
         }
@@ -201,9 +146,69 @@ public class ExecutionPlan {
     }
 
     /**
+     * 获取执行进度
+     */
+    public synchronized double getProgress() {
+        if (tasks.isEmpty()) return 1.0;
+        long completed = tasks.values().stream()
+                .filter(t -> t.getStatus() == Task.TaskStatus.COMPLETED)
+                .count();
+        return (double) completed / tasks.size();
+    }
+
+    /**
+     * 是否全部完成
+     */
+    public synchronized boolean isAllCompleted() {
+        return tasks.values().stream()
+                .allMatch(t -> t.getStatus() == Task.TaskStatus.COMPLETED);
+    }
+
+    /**
+     * 是否有失败任务
+     */
+    public synchronized boolean hasFailed() {
+        return tasks.values().stream()
+                .anyMatch(t -> t.getStatus() == Task.TaskStatus.FAILED);
+    }
+
+    /**
+     * 标记开始执行
+     */
+    public synchronized void markStarted() {
+        this.status = PlanStatus.RUNNING;
+        this.startTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 标记完成
+     */
+    public synchronized void markCompleted() {
+        this.status = PlanStatus.COMPLETED;
+        this.endTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 标记失败
+     */
+    public synchronized void markFailed() {
+        this.status = PlanStatus.FAILED;
+        this.endTime = System.currentTimeMillis();
+    }
+
+    /**
+     * 获取总耗时
+     */
+    public synchronized long getDuration() {
+        if (startTime == 0) return 0;
+        if (endTime == 0) return System.currentTimeMillis() - startTime;
+        return endTime - startTime;
+    }
+
+    /**
      * 可视化计划
      */
-    public String visualize() {
+    public synchronized String visualize() {
         StringBuilder sb = new StringBuilder();
         sb.append("╔══════════════════════════════════════════════════════════╗\n");
         sb.append(String.format("║  执行计划: %-46s║%n", goal.length() > 46 ? goal.substring(0, 43) + "..." : goal));
@@ -233,6 +238,89 @@ public class ExecutionPlan {
         return sb.toString();
     }
 
+    /**
+     * 默认折叠展示，避免完整 DAG 占满终端。
+     */
+    public synchronized String summarize() {
+        List<List<Task>> batches = getExecutionBatches();
+        List<Task> readyTasks = getExecutableTasks();
+        StringBuilder sb = new StringBuilder();
+        sb.append("📋 计划摘要\n");
+        sb.append("   - 目标: ").append(compactGoal(goal, 48)).append('\n');
+        sb.append("   - 任务数: ").append(tasks.size())
+                .append(" | 并行批次: ").append(batches.size())
+                .append(" | 当前可执行: ").append(readyTasks.size())
+                .append(" | 状态: ").append(status).append('\n');
+
+        if (!batches.isEmpty()) {
+            sb.append("   - 首批执行: ").append(formatTaskList(batches.get(0), 5)).append('\n');
+            if (batches.size() > 1) {
+                sb.append("   - 最终收敛: ")
+                        .append(formatTaskList(batches.get(batches.size() - 1), 5))
+                        .append('\n');
+            }
+        }
+
+        return sb.toString();
+    }
+
+    public synchronized List<List<Task>> getExecutionBatches() {
+        if (tasks.isEmpty()) {
+            return List.of();
+        }
+
+        Map<String, Task> remaining = new LinkedHashMap<>(tasks);
+        Set<String> completed = new HashSet<>();
+        List<List<Task>> batches = new ArrayList<>();
+
+        while (!remaining.isEmpty()) {
+            List<Task> batch = remaining.values().stream()
+                    .filter(task -> completed.containsAll(task.getDependencies()))
+                    .toList();
+
+            if (batch.isEmpty()) {
+                break;
+            }
+
+            batches.add(batch);
+            for (Task task : batch) {
+                remaining.remove(task.getId());
+                completed.add(task.getId());
+            }
+        }
+
+        return batches;
+    }
+
+    private String compactGoal(String rawGoal, int maxLength) {
+        String singleLineGoal = rawGoal
+                .replace("\r\n", " ")
+                .replace('\r', ' ')
+                .replace('\n', ' ')
+                .trim()
+                .replaceAll(" {2,}", " ");
+        if (singleLineGoal.length() <= maxLength) {
+            return singleLineGoal;
+        }
+        return singleLineGoal.substring(0, maxLength - 3) + "...";
+    }
+
+    private String formatTaskList(List<Task> batch, int limit) {
+        if (batch.isEmpty()) {
+            return "无";
+        }
+
+        List<String> taskIds = batch.stream()
+                .map(Task::getId)
+                .toList();
+
+        if (taskIds.size() <= limit) {
+            return String.join(", ", taskIds);
+        }
+
+        return String.join(", ", taskIds.subList(0, limit)) + " 等 " + taskIds.size() + " 个任务";
+    }
+
     private String getStatusIcon(Task.TaskStatus status) {
         return switch (status) {
             case PENDING -> "⏳";
@@ -243,4 +331,9 @@ public class ExecutionPlan {
         };
     }
 
+    @Override
+    public String toString() {
+        return String.format("ExecutionPlan[%s: %s] (%d tasks, %s)",
+                id, goal, tasks.size(), status);
+    }
 }

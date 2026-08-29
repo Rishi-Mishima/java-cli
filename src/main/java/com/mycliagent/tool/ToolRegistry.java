@@ -64,23 +64,23 @@ public class ToolRegistry {
     private final long commandTimeoutSeconds;
     private final long toolBatchTimeoutSeconds;
     private static final int DEFAULT_FETCH_MAX_CHARS = 8_000;
-    private String projectPath = System.getProperty("user.dir");
-    private PathGuard pathGuard = new PathGuard(projectPath);
+    private volatile String projectPath = System.getProperty("user.dir");
+    private volatile PathGuard pathGuard = new PathGuard(projectPath);
     private final AuditLog auditLog = new AuditLog();
     private SearchProvider searchProvider;
     private WebFetcher webFetcher;
     private HtmlExtractor htmlExtractor;
     private NetworkPolicy networkPolicy;
     private ContextProfile contextProfile = ContextProfile.from(null);
-    private BrowserGuard browserGuard;
-    private BrowserConnector browserConnector;
-    private BiConsumer<String, String> memorySaver;
-    private SkillRegistry skillRegistry;
-    private SkillContextBuffer skillContextBuffer;
+    private volatile BrowserGuard browserGuard;
+    private volatile BrowserConnector browserConnector;
+    private volatile BiConsumer<String, String> memorySaver;
+    private volatile SkillRegistry skillRegistry;
+    private volatile SkillContextBuffer skillContextBuffer;
     private java.util.function.BiConsumer<String, String[]> writeFileObserver = (p, ba) -> {};
-    private LspManager lspManager = new LspManager(projectPath);
-    private SnapshotService snapshotService = SnapshotService.forProject(Path.of(projectPath));
-    private boolean customSnapshotService;
+    private volatile LspManager lspManager = new LspManager(projectPath);
+    private volatile SnapshotService snapshotService = SnapshotService.forProject(Path.of(projectPath));
+    private volatile boolean customSnapshotService;
     private volatile String currentProvider = "";
     private volatile String currentModel = "";
 
@@ -110,7 +110,7 @@ public class ToolRegistry {
     /**
      * 设置代码检索的项目路径
      */
-    public void setProjectPath(String projectPath) {
+    public synchronized void setProjectPath(String projectPath) {
         this.projectPath = projectPath;
         this.pathGuard = new PathGuard(projectPath);
         this.lspManager.setProjectPath(projectPath);
@@ -188,12 +188,12 @@ public class ToolRegistry {
         this.writeFileObserver = observer == null ? (p, ba) -> {} : observer;
     }
 
-    public void setLspManager(LspManager lspManager) {
+    public synchronized void setLspManager(LspManager lspManager) {
         this.lspManager = lspManager == null ? new LspManager(projectPath) : lspManager;
         this.lspManager.setProjectPath(projectPath);
     }
 
-    public LspDiagnosticReport flushPendingLspDiagnostics() {
+    public synchronized LspDiagnosticReport flushPendingLspDiagnostics() {
         return lspManager == null ? LspDiagnosticReport.EMPTY : lspManager.flushPendingDiagnostics();
     }
 
@@ -201,7 +201,7 @@ public class ToolRegistry {
         return snapshotService;
     }
 
-    public void setSnapshotService(SnapshotService snapshotService) {
+    public synchronized void setSnapshotService(SnapshotService snapshotService) {
         this.snapshotService = snapshotService == null ? SnapshotService.forProject(Path.of(projectPath)) : snapshotService;
         this.customSnapshotService = snapshotService != null;
     }
