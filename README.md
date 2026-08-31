@@ -7,14 +7,20 @@ MyCliAgent 是一个从零实现的命令行 AI Agent 框架。它把 ReAct 工�
 
 MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It combines ReAct tool use, Plan-and-Execute workflows, multi-agent orchestration, codebase RAG, memory management, human approval and safe tool boundaries into a runnable engineering project.
 
+
 ## Architecture
 
-![MyCliAgent runtime architecture](archify/paicli-runtime-architecture.visual-check.1440x900.light.png)
+![MyCliAgent runtime architecture](archify/paicli-runtime-architecture.visual-check.1440x900.dark.png)
 
-Open the generated runtime architecture diagram:
+<div align="center">
 
-- [Interactive Archify diagram](https://raw.githack.com/Rishi-Mishima/java-cli/main/archify/paicli-runtime-architecture.html)
-- [Archify source spec](archify/paicli-runtime-architecture.json)
+[**Open Interactive Architecture Diagram**](https://raw.githack.com/Rishi-Mishima/java-cli/main/archify/paicli-runtime-architecture.html)
+
+</div>
+
+<p align="center">
+  Interactive Archify view with zoom, search, guided paths, and export.
+</p>
 
 The runtime is organized around a terminal entry point, a mode-routing layer, and shared service boundaries:
 
