@@ -86,27 +86,36 @@ After startup, the CLI enters an interactive loop. The main demo paths are:
 
 ## Architecture
 
+Open the generated runtime architecture diagram:
+
+- [Interactive Archify diagram](archify/paicli-runtime-architecture.html)
+- [Archify source spec](archify/paicli-runtime-architecture.json)
+
+The runtime is organized around a terminal entry point, a mode-routing layer, and a shared agent runtime:
+
+| Runtime area | Responsibility |
+| --- | --- |
+| **Terminal CLI** | Reads interactive commands and routes normal input, `/multi`, `/index`, `/search`, `clear` and `exit`. |
+| **Main Runtime** | Loads `.env`, creates the `LlmClient`, wraps tools with HITL, and wires `Agent` and `AgentOrchestrator`. |
+| **Agent Runtime** | Groups the default ReAct loop, Plan-and-Execute flow and multi-agent execution path. |
+| **Planner and DAG** | Converts large goals into JSON tasks, dependencies, execution order, status and progress. |
+| **SubAgent Pool** | Provides planner, worker and reviewer roles for multi-agent orchestration. |
+| **LlmClient** | Keeps provider-specific chat and tool-call formatting behind a stable interface. |
+| **MemoryManager** | Supplies retrieved context and stores conversation entries, facts, tool results and token usage. |
+| **ToolRegistry and HITL** | Exposes tool schemas to the model and gates execution through guards, approval and audit logging. |
+| **Concurrency Control** | Uses bounded executors for plan task batches, multi-agent step batches and parallel tool calls. |
+
+High-level data flow:
+
 ```text
-User
-  |
-  v
-CLI Main
-  |
-  +--> Agent                         # ReAct loop
-  |     +--> LlmClient                # provider abstraction
-  |     +--> ToolRegistry             # tools and safety boundary
-  |     +--> MemoryManager            # short-term / long-term memory
-  |     +--> PromptAssembler          # prompt mode assembly
-  |
-  +--> PlanExecuteAgent               # task graph planning and execution
-  |     +--> Planner
-  |     +--> ExecutionPlan
-  |     +--> Task
-  |
-  +--> AgentOrchestrator              # multi-agent collaboration
-        +--> planner SubAgent
-        +--> worker SubAgents
-        +--> reviewer SubAgent
+Terminal CLI
+  -> Main Runtime
+  -> Agent Runtime
+  -> LlmClient
+  -> ToolRegistry and HITL
+  -> Tool Backends
+  -> MemoryManager
+  -> next model turn or final answer
 ```
 
 ## Execution Model
