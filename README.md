@@ -7,7 +7,6 @@ MyCliAgent 是一个从零实现的命令行 AI Agent 框架。它把 ReAct 工�
 
 MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It combines ReAct tool use, Plan-and-Execute workflows, multi-agent orchestration, codebase RAG, memory management, human approval and safe tool boundaries into a runnable engineering project.
 
-The project is intentionally structured as an interview-ready case study: the LLM is only one part of the runtime; the surrounding system handles context, tools, safety, observability and concurrent execution.
 
 ## Highlights
 
