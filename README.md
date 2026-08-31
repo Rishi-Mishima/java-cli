@@ -1,48 +1,58 @@
 # MyCliAgent
 
-一个用 Java 17 从零实现的命令行 AI Agent 框架，核心目标是展示 Agent 工程中的关键能力：ReAct 工具调用、Plan-and-Execute、多 Agent 协作、代码库 RAG、记忆管理、人工审批、安全工具边界和终端交互体验。
+> A terminal-first AI agent runtime built in Java 17.
+> Designed to make agent reasoning, tool execution, memory, planning and safety visible from the command line.
 
-这个项目不是简单封装大模型 API，而是把一个 CLI Agent 拆成可扩展的工程模块，适合作为面试作品讲解 Agent 系统设计、上下文管理、工具执行安全和并发编排。
+MyCliAgent 是一个从零实现的命令行 AI Agent 框架。它把 ReAct 工具调用、Plan-and-Execute、多 Agent 协作、代码库 RAG、记忆管理、人工审批和安全工具边界组织成一套可运行、可演示、可扩展的 Java 工程。
 
-A Java 17 command-line AI Agent framework built from scratch to demonstrate core agent-engineering capabilities: ReAct tool use, Plan-and-Execute workflows, multi-agent collaboration, codebase RAG, memory management, human approval, safe tool boundaries and terminal-first interaction.
+MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It combines ReAct tool use, Plan-and-Execute workflows, multi-agent orchestration, codebase RAG, memory management, human approval and safe tool boundaries into a runnable engineering project.
 
-This project is not just a thin wrapper around an LLM API. It decomposes a CLI Agent into extensible engineering modules, making it suitable for interview discussions around agent system design, context management, safe tool execution and concurrent orchestration.
+The project is intentionally structured as an interview-ready case study: the LLM is only one part of the runtime; the surrounding system handles context, tools, safety, observability and concurrent execution.
 
 ## Highlights
 
-- **Agent 核心循环**：实现 ReAct 风格的多轮推理、工具调用、工具结果回灌和最终回答生成。
-  **Agent Core Loop**: Implements ReAct-style multi-turn reasoning, tool invocation, tool observation feedback and final answer generation.
-- **Plan-and-Execute**：将复杂任务拆成依赖图，支持计划审核、依赖排序、失败重规划和并行执行。
-  **Plan-and-Execute**: Breaks complex tasks into a dependency graph with plan review, dependency ordering, failure replanning and parallel execution.
-- **Multi-Agent Orchestrator**：内置 planner、worker、reviewer 三类子 Agent，支持任务拆解、并发执行、结果评审和重试。
-  **Multi-Agent Orchestrator**: Provides planner, worker and reviewer sub-agents for task decomposition, concurrent execution, result review and retry.
-- **代码库 RAG**：支持 `/index` 建立代码索引，使用代码分块、JavaParser 关系分析、Embedding 和 SQLite 向量存储完成混合检索。
-  **Codebase RAG**: Supports `/index` for code indexing, combining code chunking, JavaParser relation analysis, embeddings and SQLite-backed vector storage.
-- **安全工具系统**：统一 ToolRegistry 注册文件、命令、搜索、浏览器、记忆、技能和快照相关工具，并通过路径保护、命令守卫、HITL 审批降低误操作风险。
-  **Safe Tool System**: Uses a centralized ToolRegistry for file, command, search, browser, memory, skill and snapshot tools, with path guards, command guards and HITL approval.
-- **记忆与上下文管理**：区分短期对话记忆和长期事实记忆，按模型上下文窗口动态设置预算，并支持历史压缩。
-  **Memory and Context Management**: Separates short-term conversation memory from long-term facts, adjusts budgets by model context window and supports history compaction.
-- **终端交互体验**：基于 JLine、ANSI 渲染、折叠块、状态栏和工具调用展示，提升 CLI Agent 的可观察性。
-  **Terminal Interaction**: Uses JLine, ANSI rendering, foldable blocks, status display and tool-call visualization to make the CLI Agent observable.
-- **可测试、可演示**：默认 mock 模式无需 API Key；Maven profile 区分日常打包、快速回归和阶段性 smoke test。
-  **Testable and Demo-Friendly**: Runs in mock mode without an API key, with Maven profiles for packaging, quick regression and staged smoke tests.
+| Layer | What it shows | 面试中可以讲什么 |
+| --- | --- | --- |
+| **Reasoning Runtime** | ReAct loop with multi-turn tool calls and observations | 如何让模型从“聊天”变成“能行动的执行器” |
+| **Planning Runtime** | Plan-and-Execute with task graphs, review hooks and replanning | 如何处理长任务、依赖关系、失败恢复和执行顺序 |
+| **Multi-Agent System** | Planner, workers and reviewer coordinated by an orchestrator | 如何设计角色分工、并发批次、评审重试和结果汇总 |
+| **Code Intelligence** | `/index` + hybrid code search backed by chunks, relations and SQLite | 如何让 Agent 理解当前代码库，而不是盲目读全量文件 |
+| **Tool Safety Boundary** | Centralized ToolRegistry with path, command, browser and approval guards | 如何限制 Agent 的操作范围，并留下可审计的执行路径 |
+| **Memory Layer** | Short-term conversation memory, long-term facts and context budgeting | 如何在有限上下文窗口里保留有用信息 |
+| **Terminal UX** | JLine input, inline rendering, status display and folded tool output | 如何让 CLI Agent 的思考、调用和结果对用户可见 |
+| **Demo Path** | Mock provider, GLM provider and Maven test profiles | 如何让项目在没有 API Key 的情况下仍然可运行、可评审 |
+
+## Why This Project Matters
+
+Most AI demos stop at sending a prompt to a model. MyCliAgent focuses on the runtime around the model:
+
+```text
+model response
+  -> tool intent
+  -> policy check
+  -> execution
+  -> observation
+  -> memory update
+  -> next reasoning step
+```
+
+That loop is where real agent engineering lives. This project turns those hidden steps into explicit Java modules so they can be tested, discussed and extended.
 
 ## Tech Stack
 
-- **Language**: Java 17
-- **Build**: Maven
-- **LLM**: GLM API + Mock provider
-- **HTTP**: OkHttp
-- **JSON**: Jackson
-- **Logging**: Logback
-- **Terminal UI**: JLine, Lanterna, ANSI renderer
-- **Code Analysis**: JavaParser
-- **RAG Storage**: SQLite JDBC
-- **HTML Parsing**: Jsoup
-- **Git Snapshot Foundation**: JGit
-- **Testing**: JUnit 5, Mockito, MockWebServer
+| Area | Choices |
+| --- | --- |
+| Language / Build | Java 17, Maven |
+| LLM Runtime | GLM API, mock provider, provider-agnostic `LlmClient` |
+| Data / Protocols | Jackson, OkHttp, Jsoup |
+| Terminal UI | JLine, Lanterna, ANSI renderer |
+| Code Intelligence | JavaParser, SQLite JDBC, custom chunking and retrieval |
+| Safety / Recovery | HITL handlers, guards, audit log, JGit snapshot foundation |
+| Testing | JUnit 5, Mockito, MockWebServer |
 
 ## Quick Start
+
+The default path is optimized for demos: build once, run locally, no paid model required.
 
 ### 1. Build
 
@@ -78,42 +88,17 @@ java -jar target/MyCliAgent-1.0-SNAPSHOT.jar
 
 ## CLI Usage
 
-After startup, the CLI enters an interactive loop:
+After startup, the CLI enters an interactive loop. The main demo paths are:
 
-```text
-你好，请介绍一下你自己
-```
-
-Use ReAct tool calling:
-
-```text
-请读取 README.md，并总结这个项目
-```
-
-Index the current project:
-
-```text
-/index
-```
-
-Search the indexed codebase:
-
-```text
-/search ToolRegistry 如何保护文件路径
-```
-
-Run a multi-agent task:
-
-```text
-/multi 分析这个项目的架构，并找出三个可以优化的点
-```
-
-Utility commands:
-
-```text
-clear
-exit
-```
+| Goal | Command |
+| --- | --- |
+| Basic conversation | `你好，请介绍一下你自己` |
+| ReAct tool calling | `请读取 README.md，并总结这个项目` |
+| Build code index | `/index` |
+| Search indexed code | `/search ToolRegistry 如何保护文件路径` |
+| Run multi-agent workflow | `/multi 分析这个项目的架构，并找出三个可以优化的点` |
+| Clear conversation | `clear` |
+| Exit CLI | `exit` |
 
 ## Architecture
 
@@ -139,6 +124,30 @@ CLI Main
         +--> worker SubAgents
         +--> reviewer SubAgent
 ```
+
+## Execution Model
+
+```text
+ReAct mode
+User request -> Agent -> LLM -> ToolRegistry -> observation -> LLM -> answer
+
+Plan mode
+Goal -> Planner -> ExecutionPlan -> executable batches -> tools/subtasks -> final synthesis
+
+Multi-agent mode
+Goal -> planner SubAgent -> worker pool -> reviewer SubAgent -> orchestrated result
+```
+
+## Design Principles
+
+| Principle | How it appears in the codebase |
+| --- | --- |
+| **The model is replaceable** | `LlmClient` isolates provider-specific request and response formats. |
+| **Tools are explicit contracts** | `ToolRegistry` owns tool metadata, schemas, execution and audit behavior. |
+| **Context is a budget** | Memory retrieval and history compaction keep prompts within model limits. |
+| **Risky actions need boundaries** | Path guards, command guards, browser guards and HITL approval sit before execution. |
+| **Large tasks need structure** | Plan-and-Execute turns open-ended goals into ordered, reviewable task graphs. |
+| **Concurrency should stay observable** | Parallel workers buffer output and flush deterministically to the terminal. |
 
 ## Module Structure
 
@@ -310,12 +319,16 @@ Existing tests cover concurrency-sensitive areas such as:
 
 ## Interview Talking Points
 
-- **Why Java?** Java makes concurrency, type boundaries and long-running CLI processes explicit, which helps demonstrate system design rather than only prompt scripting.
-- **Why a ToolRegistry?** It centralizes capability exposure, schema generation, validation, execution and audit behavior.
-- **Why mock mode?** A reviewer can run the project without API credentials, while the production path still uses the same `LlmClient` contract.
-- **Why Plan-and-Execute and ReAct both exist?** ReAct works well for exploratory tool use; Plan-and-Execute is better for larger goals with dependencies and review points.
-- **Where is the safety model?** Path restrictions, command guards, browser guards, HITL approval, audit logs and write limits form a layered safety boundary.
-- **Where is the scalability story?** The project separates model provider, prompt assembly, memory, tools, RAG, rendering and orchestration so each layer can evolve independently.
+Use this project as a system-design story, not only a feature demo:
+
+| Question | Strong answer |
+| --- | --- |
+| Why Java? | It makes concurrency, type boundaries and long-running CLI runtime design explicit. |
+| Why a `ToolRegistry`? | Tool exposure, schema generation, validation, execution and audit behavior live behind one boundary. |
+| Why mock mode? | Reviewers can run the project without credentials while the production path keeps the same interface. |
+| Why both ReAct and Plan-and-Execute? | ReAct fits exploratory tool use; Plan-and-Execute fits larger goals with dependencies and review points. |
+| Where is the safety model? | Path restrictions, command guards, browser guards, HITL approval, audit logs and write limits create layered control. |
+| Where is the scalability story? | Provider, prompt, memory, tools, RAG, rendering and orchestration are separate modules that can evolve independently. |
 
 ## Roadmap
 
