@@ -2,36 +2,298 @@
   "schema_version": 1,
   "diagram_type": "architecture",
   "meta": {
-    "title": "PaiCli Runtime Architecture",
+    "title": "MyCliAgent Runtime Architecture",
     "output": "paicli-runtime-architecture.html",
     "quality_profile": "showcase",
-    "viewBox": [1120, 640]
+    "viewBox": [1320, 740],
+    "repository": {
+      "url": "https://github.com/Rishi-Mishima/java-cli",
+      "revision": "75684e4b01ba2a2dfb4678807096deebe7c28bd9"
+    },
+    "views": [
+      {
+        "id": "cli-routing",
+        "label": "CLI routing",
+        "focus": ["terminal", "mainRuntime", "codeIntelligence", "reactAgent", "multiOrchestrator"],
+        "note": "Main exposes normal chat, /multi, /index, and /search from the interactive loop."
+      },
+      {
+        "id": "react-loop",
+        "label": "ReAct loop",
+        "focus": ["reactAgent", "llmClient", "memoryManager", "toolBoundary", "toolBackends"],
+        "note": "Agent.run alternates model calls, tool calls, observations, and memory updates."
+      },
+      {
+        "id": "multi-agent",
+        "label": "Multi-agent path",
+        "focus": ["multiOrchestrator", "subAgents", "llmClient", "toolBoundary"],
+        "note": "The /multi path creates planner, worker, and reviewer SubAgent roles over shared services."
+      }
+    ]
   },
   "components": [
-    { "id": "terminal", "type": "frontend", "label": "Terminal CLI", "sublabel": "interactive loop", "pos": [55, 285], "size": [135, 68] },
-    { "id": "mainRuntime", "type": "backend", "label": "Main Runtime", "sublabel": "boot wiring and mode routing", "pos": [270, 285], "size": [165, 68] },
-    { "id": "agentRuntime", "type": "backend", "label": "Agent Runtime", "sublabel": "ReAct, PlanExecute, /multi", "pos": [520, 270], "size": [190, 88] },
-    { "id": "plannerDag", "type": "backend", "label": "Planner and DAG", "sublabel": "JSON tasks and dependencies", "pos": [525, 75], "size": [180, 72] },
-    { "id": "subAgents", "type": "backend", "label": "SubAgent Pool", "sublabel": "planner, workers, reviewer", "pos": [525, 435], "size": [180, 72] },
-    { "id": "llmClient", "type": "external", "label": "LlmClient", "sublabel": "GLMClient or MockLlmClient", "pos": [850, 105], "size": [175, 74] },
-    { "id": "memory", "type": "database", "label": "MemoryManager", "sublabel": "context, facts, token usage", "pos": [850, 260], "size": [175, 74] },
-    { "id": "toolRegistry", "type": "security", "label": "ToolRegistry and HITL", "sublabel": "schemas, guards, audit", "pos": [850, 415], "size": [180, 76] },
-    { "id": "toolBackends", "type": "cloud", "label": "Tool Backends", "sublabel": "file, shell, RAG, web, MCP", "pos": [850, 535], "size": [180, 72] },
-    { "id": "runtimeControl", "type": "messagebus", "label": "Concurrency Control", "sublabel": "task, step, tool executors", "pos": [270, 535], "size": [210, 72] }
+    {
+      "id": "terminal",
+      "type": "frontend",
+      "label": "Terminal CLI",
+      "sublabel": "interactive loop",
+      "pos": [45, 335],
+      "size": [145, 72],
+      "sources": [{ "path": "src/main/java/com/mycliagent/cli/Main.java", "line": 47, "label": "readLine loop" }]
+    },
+    {
+      "id": "mainRuntime",
+      "type": "backend",
+      "label": "Main Runtime",
+      "sublabel": "config, wiring, route commands",
+      "pos": [260, 325],
+      "size": [190, 92],
+      "sources": [{ "path": "src/main/java/com/mycliagent/cli/Main.java", "line": 30, "end_line": 40, "label": "boot wiring" }]
+    },
+    {
+      "id": "codeIntelligence",
+      "type": "database",
+      "label": "Code Intelligence",
+      "sublabel": "CodeIndex + CodeRetriever",
+      "pos": [260, 120],
+      "size": [190, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/cli/Main.java", "line": 69, "end_line": 87, "label": "/index /search" }]
+    },
+    {
+      "id": "reactAgent",
+      "type": "backend",
+      "label": "ReAct Agent",
+      "sublabel": "default chat + tool loop",
+      "pos": [540, 205],
+      "size": [190, 86],
+      "sources": [{ "path": "src/main/java/com/mycliagent/agent/Agent.java", "line": 121, "label": "Agent.run" }]
+    },
+    {
+      "id": "multiOrchestrator",
+      "type": "backend",
+      "label": "Multi-Agent Orchestrator",
+      "sublabel": "/multi execution batches",
+      "pos": [530, 405],
+      "size": [220, 88],
+      "sources": [{ "path": "src/main/java/com/mycliagent/agent/AgentOrchestrator.java", "line": 141, "label": "run /multi" }]
+    },
+    {
+      "id": "planExecute",
+      "type": "backend",
+      "label": "PlanExecuteAgent",
+      "sublabel": "implemented, not routed by Main",
+      "tag": "available class",
+      "pos": [520, 615],
+      "size": [230, 74],
+      "sources": [{ "path": "src/main/java/com/mycliagent/agent/PlanExecuteAgent.java", "line": 117, "label": "constructors" }]
+    },
+    {
+      "id": "llmClient",
+      "type": "external",
+      "label": "LlmClient",
+      "sublabel": "GLMClient or MockLlmClient",
+      "pos": [855, 90],
+      "size": [190, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/cli/Main.java", "line": 33, "label": "provider choice" }]
+    },
+    {
+      "id": "memoryManager",
+      "type": "database",
+      "label": "MemoryManager",
+      "sublabel": "short-term, facts, context budget",
+      "pos": [855, 250],
+      "size": [205, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/memory/MemoryManager.java", "line": 22, "label": "memory facade" }]
+    },
+    {
+      "id": "toolBoundary",
+      "type": "security",
+      "label": "HitlToolRegistry",
+      "sublabel": "approval, guards, audit, schemas",
+      "pos": [855, 405],
+      "size": [205, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/hitl/HitlToolRegistry.java", "line": 18, "label": "approval gate" }]
+    },
+    {
+      "id": "subAgents",
+      "type": "backend",
+      "label": "SubAgent Roles",
+      "sublabel": "planner, workers, reviewer",
+      "pos": [855, 570],
+      "size": [205, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/agent/AgentOrchestrator.java", "line": 105, "end_line": 110, "label": "role setup" }]
+    },
+    {
+      "id": "toolBackends",
+      "type": "cloud",
+      "label": "Tool Backends",
+      "sublabel": "file, shell, web, browser, MCP",
+      "pos": [1110, 405],
+      "size": [165, 78],
+      "sources": [{ "path": "src/main/java/com/mycliagent/tool/ToolRegistry.java", "line": 99, "end_line": 107, "label": "tool families" }]
+    },
+    {
+      "id": "concurrency",
+      "type": "messagebus",
+      "label": "Concurrency Control",
+      "sublabel": "subagent and tool batches",
+      "pos": [50, 615],
+      "size": [220, 74],
+      "sources": [
+        { "path": "src/main/java/com/mycliagent/agent/AgentOrchestrator.java", "line": 416, "label": "subagent pool" },
+        { "path": "src/main/java/com/mycliagent/tool/ToolRegistry.java", "line": 1176, "label": "tool batch" }
+      ]
+    }
   ],
   "boundaries": [
-    { "kind": "region", "label": "PaiCli Java process", "wraps": ["mainRuntime", "agentRuntime", "plannerDag", "subAgents", "memory", "toolRegistry", "runtimeControl"] },
-    { "kind": "security-group", "label": "Tool policy boundary", "wraps": ["toolRegistry", "toolBackends"] }
+    {
+      "kind": "region",
+      "label": "MyCliAgent Java process",
+      "wraps": ["mainRuntime", "codeIntelligence", "reactAgent", "multiOrchestrator", "planExecute", "llmClient", "memoryManager", "toolBoundary", "subAgents", "concurrency"]
+    },
+    {
+      "kind": "security-group",
+      "label": "Tool policy boundary",
+      "wraps": ["toolBoundary", "toolBackends"]
+    }
   ],
   "connections": [
-    { "id": "terminal-main", "from": "terminal", "to": "mainRuntime", "label": "stdin commands", "variant": "emphasis", "labelDy": 50 },
-    { "id": "main-agent", "from": "mainRuntime", "to": "agentRuntime", "label": "dispatch", "variant": "emphasis", "labelDy": -36 },
-    { "id": "agent-planner", "from": "agentRuntime", "to": "plannerDag", "label": "createPlan / replan", "fromSide": "top", "toSide": "bottom", "labelDx": -105 },
-    { "id": "agent-subagents", "from": "agentRuntime", "to": "subAgents", "variant": "emphasis", "fromSide": "bottom", "toSide": "top" },
-    { "id": "agent-llm", "from": "agentRuntime", "to": "llmClient", "label": "messages + tool schemas", "variant": "emphasis", "fromSide": "right", "toSide": "left", "labelDy": -56 },
-    { "id": "agent-memory", "from": "agentRuntime", "to": "memory", "fromSide": "right", "toSide": "left" },
-    { "id": "agent-tools", "from": "agentRuntime", "to": "toolRegistry", "label": "tool_calls + results", "variant": "security", "fromSide": "right", "toSide": "left", "labelDy": 58 },
-    { "id": "registry-backends", "from": "toolRegistry", "to": "toolBackends", "label": "guarded invocation", "variant": "security", "fromSide": "bottom", "toSide": "top", "labelDy": 24 },
-    { "id": "control-agent", "from": "runtimeControl", "to": "agentRuntime", "variant": "dashed", "fromSide": "top", "toSide": "bottom" }
+    {
+      "id": "terminal-main",
+      "from": "terminal",
+      "to": "mainRuntime",
+      "label": "stdin commands",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [225, 428]
+    },
+    {
+      "id": "main-code",
+      "from": "mainRuntime",
+      "to": "codeIntelligence",
+      "label": "/index and /search",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [350, 250]
+    },
+    {
+      "id": "main-react",
+      "from": "mainRuntime",
+      "to": "reactAgent",
+      "label": "normal input",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [500, 285]
+    },
+    {
+      "id": "main-multi",
+      "from": "mainRuntime",
+      "to": "multiOrchestrator",
+      "label": "/multi",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [500, 400]
+    },
+    {
+      "id": "react-llm",
+      "from": "reactAgent",
+      "to": "llmClient",
+      "label": "messages + tool schemas",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [790, 175]
+    },
+    {
+      "id": "react-memory",
+      "from": "reactAgent",
+      "to": "memoryManager",
+      "label": "context + conversation",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [665, 335]
+    },
+    {
+      "id": "react-tools",
+      "from": "reactAgent",
+      "to": "toolBoundary",
+      "label": "tool_calls + observations",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [770, 365]
+    },
+    {
+      "id": "multi-subagents",
+      "from": "multiOrchestrator",
+      "to": "subAgents",
+      "label": "assign steps + review",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left",
+      "via": [[795, 449], [795, 609]],
+      "labelAt": [800, 530]
+    },
+    {
+      "id": "subagents-tools",
+      "from": "subAgents",
+      "to": "toolBoundary",
+      "label": "shared registry",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "bottom",
+      "labelAt": [995, 535]
+    },
+    {
+      "id": "tool-backends",
+      "from": "toolBoundary",
+      "to": "toolBackends",
+      "label": "guarded invocation",
+      "variant": "security",
+      "fromSide": "right",
+      "toSide": "left",
+      "labelAt": [1085, 500]
+    },
+    {
+      "id": "main-planexecute-note",
+      "from": "mainRuntime",
+      "to": "planExecute",
+      "label": "not constructed by Main",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "left",
+      "labelAt": [400, 560]
+    }
+  ],
+  "cards": [
+    {
+      "dot": "emerald",
+      "title": "Current CLI paths",
+      "items": [
+        "Normal input dispatches to Agent.run.",
+        "/multi dispatches to AgentOrchestrator.run.",
+        "/index and /search call CodeIndex and CodeRetriever directly from Main."
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Safety boundary",
+      "items": [
+        "Main wires HitlToolRegistry, so risky tool execution can require approval.",
+        "ToolRegistry centralizes file, shell, web, browser, memory, skill, RAG, and snapshot tools."
+      ]
+    },
+    {
+      "dot": "violet",
+      "title": "Implemented but separate",
+      "items": [
+        "PlanExecuteAgent exists in the codebase and owns Planner / ExecutionPlan flow.",
+        "The current Main class does not expose a CLI command that constructs PlanExecuteAgent."
+      ]
+    }
   ]
 }

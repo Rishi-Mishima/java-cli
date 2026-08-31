@@ -7,6 +7,38 @@ MyCliAgent 是一个从零实现的命令行 AI Agent 框架。它把 ReAct 工�
 
 MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It combines ReAct tool use, Plan-and-Execute workflows, multi-agent orchestration, codebase RAG, memory management, human approval and safe tool boundaries into a runnable engineering project.
 
+## Architecture
+
+![MyCliAgent runtime architecture](archify/paicli-runtime-architecture.visual-check.1440x900.light.png)
+
+Open the generated runtime architecture diagram:
+
+- [Interactive Archify diagram](archify/paicli-runtime-architecture.html)
+- [Archify source spec](archify/paicli-runtime-architecture.json)
+
+The runtime is organized around a terminal entry point, a mode-routing layer, and shared service boundaries:
+
+| Runtime area | Responsibility |
+| --- | --- |
+| **Terminal CLI** | Reads interactive commands and routes normal input, `/multi`, `/index`, `/search`, `clear` and `exit`. |
+| **Main Runtime** | Loads `.env`, creates the `LlmClient`, wraps tools with HITL, and wires `Agent` and `AgentOrchestrator`. |
+| **ReAct Agent** | Handles normal chat input through model calls, tool calls, observations, memory updates and final answers. |
+| **Multi-Agent Orchestrator** | Handles `/multi` by coordinating planner, worker and reviewer `SubAgent` roles. |
+| **Code Intelligence** | Handles `/index` and `/search` directly from Main with `CodeIndex` and `CodeRetriever`. |
+| **LlmClient** | Keeps provider-specific chat and tool-call formatting behind a stable interface. |
+| **MemoryManager** | Supplies retrieved context and stores conversation entries, facts, tool results and token usage. |
+| **HitlToolRegistry** | Exposes tool schemas to the model and gates risky execution through guards, approval and audit logging. |
+| **PlanExecuteAgent** | Exists as an implemented planning runtime, but the current `Main` class does not route a CLI command to it. |
+
+Current CLI data flow:
+
+```text
+Terminal CLI
+  -> Main Runtime
+  -> normal input: ReAct Agent -> LlmClient / MemoryManager / HitlToolRegistry
+  -> /multi: Multi-Agent Orchestrator -> SubAgent roles -> shared LlmClient / HitlToolRegistry
+  -> /index or /search: CodeIndex / CodeRetriever
+```
 
 ## Highlights
 
@@ -83,40 +115,6 @@ After startup, the CLI enters an interactive loop. The main demo paths are:
 | Run multi-agent workflow | `/multi 分析这个项目的架构，并找出三个可以优化的点` |
 | Clear conversation | `clear` |
 | Exit CLI | `exit` |
-
-## Architecture
-
-Open the generated runtime architecture diagram:
-
-- [Interactive Archify diagram](archify/paicli-runtime-architecture.html)
-- [Archify source spec](archify/paicli-runtime-architecture.json)
-
-The runtime is organized around a terminal entry point, a mode-routing layer, and a shared agent runtime:
-
-| Runtime area | Responsibility |
-| --- | --- |
-| **Terminal CLI** | Reads interactive commands and routes normal input, `/multi`, `/index`, `/search`, `clear` and `exit`. |
-| **Main Runtime** | Loads `.env`, creates the `LlmClient`, wraps tools with HITL, and wires `Agent` and `AgentOrchestrator`. |
-| **Agent Runtime** | Groups the default ReAct loop, Plan-and-Execute flow and multi-agent execution path. |
-| **Planner and DAG** | Converts large goals into JSON tasks, dependencies, execution order, status and progress. |
-| **SubAgent Pool** | Provides planner, worker and reviewer roles for multi-agent orchestration. |
-| **LlmClient** | Keeps provider-specific chat and tool-call formatting behind a stable interface. |
-| **MemoryManager** | Supplies retrieved context and stores conversation entries, facts, tool results and token usage. |
-| **ToolRegistry and HITL** | Exposes tool schemas to the model and gates execution through guards, approval and audit logging. |
-| **Concurrency Control** | Uses bounded executors for plan task batches, multi-agent step batches and parallel tool calls. |
-
-High-level data flow:
-
-```text
-Terminal CLI
-  -> Main Runtime
-  -> Agent Runtime
-  -> LlmClient
-  -> ToolRegistry and HITL
-  -> Tool Backends
-  -> MemoryManager
-  -> next model turn or final answer
-```
 
 ## Execution Model
 
