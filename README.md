@@ -13,7 +13,7 @@ MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It c
 
 Open the generated runtime architecture diagram:
 
-- [Interactive Archify diagram](archify/paicli-runtime-architecture.html)
+- [Interactive Archify diagram](https://raw.githack.com/Rishi-Mishima/java-cli/main/archify/paicli-runtime-architecture.html)
 - [Archify source spec](archify/paicli-runtime-architecture.json)
 
 The runtime is organized around a terminal entry point, a mode-routing layer, and shared service boundaries:
