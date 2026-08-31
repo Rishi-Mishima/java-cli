@@ -301,34 +301,6 @@ Existing tests cover concurrency-sensitive areas such as:
 - `PlanExecuteAgentConcurrencyTest`
 - `RagSmokeTest`
 
-## Interview Talking Points
-
-Use this project as a system-design story, not only a feature demo:
-
-| Question | Strong answer |
-| --- | --- |
-| Why Java? | It makes concurrency, type boundaries and long-running CLI runtime design explicit. |
-| Why a `ToolRegistry`? | Tool exposure, schema generation, validation, execution and audit behavior live behind one boundary. |
-| Why mock mode? | Reviewers can run the project without credentials while the production path keeps the same interface. |
-| Why both ReAct and Plan-and-Execute? | ReAct fits exploratory tool use; Plan-and-Execute fits larger goals with dependencies and review points. |
-| Where is the safety model? | Path restrictions, command guards, browser guards, HITL approval, audit logs and write limits create layered control. |
-| Where is the scalability story? | Provider, prompt, memory, tools, RAG, rendering and orchestration are separate modules that can evolve independently. |
-
-## Roadmap
-
-- Add more provider implementations such as OpenAI-compatible APIs.
-- Persist long-term memory with project-level scope.
-- Replace the placeholder snapshot service with full pre-turn restore support.
-- Expand MCP tool integration and external resource indexing.
-- Add richer LSP diagnostics and automatic post-edit validation.
-- Add integration tests for browser and web tool flows.
-- Package the CLI with a more polished install command.
-
-## Portfolio Summary
-
-MyCliAgent is a Java CLI Agent framework that demonstrates practical AI agent engineering beyond a basic chatbot. It includes a provider-agnostic LLM layer, ReAct tool use, Plan-and-Execute task graphs, multi-agent orchestration, codebase RAG, memory retrieval, terminal rendering, HITL approval and tool safety guards.
-
-For interviews, the strongest story is that the project treats the LLM as one component inside a controlled runtime: tools are explicit, context is budgeted, actions are auditable, and larger tasks can be planned, reviewed and executed with concurrency.
 
 ## License
 
