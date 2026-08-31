@@ -21,21 +21,6 @@ MyCliAgent is a Java 17 command-line AI Agent framework built from scratch. It c
 | **Terminal UX** | JLine input, inline rendering, status display and folded tool output | 如何让 CLI Agent 的思考、调用和结果对用户可见 |
 | **Demo Path** | Mock provider, GLM provider and Maven test profiles | 如何让项目在没有 API Key 的情况下仍然可运行、可评审 |
 
-## Why This Project Matters
-
-Most AI demos stop at sending a prompt to a model. MyCliAgent focuses on the runtime around the model:
-
-```text
-model response
-  -> tool intent
-  -> policy check
-  -> execution
-  -> observation
-  -> memory update
-  -> next reasoning step
-```
-
-That loop is where real agent engineering lives. This project turns those hidden steps into explicit Java modules so they can be tested, discussed and extended.
 
 ## Tech Stack
 
