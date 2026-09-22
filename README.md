@@ -317,4 +317,4 @@ Existing tests cover concurrency-sensitive areas such as:
 
 ## License
 
-Add an open-source license such as MIT or Apache 2.0 before publishing this project publicly.
+This project is licensed under the MIT License. See the `LICENSE` file for details.

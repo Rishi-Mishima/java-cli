@@ -37,6 +37,55 @@ public class CodeRetriever implements AutoCloseable {
     }
 
     /**
+     * Keyword-only baseline for retrieval evaluation.
+     *
+     * Tokenizes a natural-language query using the same tokenizer as
+     * hybridSearch(), then merges keyword matches without semantic retrieval.
+     */
+    public List<VectorStore.SearchResult> keywordOnlySearch(
+            String query,
+            int topK
+    ) throws SQLException {
+
+        Map<String, VectorStore.SearchResult> merged = new LinkedHashMap<>();
+
+        Set<String> keywords = RagQueryTokenizer.tokenize(query);
+
+        for (String keyword : keywords) {
+
+            for (VectorStore.SearchResult result : keywordSearch(keyword)) {
+
+                VectorStore.SearchResult boosted =
+                        boostKeywordMatch(result, keyword);
+
+                String key =
+                        boosted.filePath()
+                                + "#"
+                                + boosted.name();
+
+                VectorStore.SearchResult existing = merged.get(key);
+
+                if (existing == null
+                        || boosted.similarity() > existing.similarity()) {
+
+                    merged.put(key, boosted);
+                }
+            }
+        }
+
+        List<VectorStore.SearchResult> ranked =
+                new ArrayList<>(merged.values());
+
+        ranked.sort(
+                Comparator.comparingDouble(
+                        VectorStore.SearchResult::similarity
+                ).reversed()
+        );
+
+        return limitPerFile(ranked, topK, 2);
+    }
+
+    /**
      * 混合检索：同时进行语义检索和关键词检索，合并去重
      */
     public List<VectorStore.SearchResult> hybridSearch(String query, int topK) throws Exception {

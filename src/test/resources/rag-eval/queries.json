@@ -1,0 +1,142 @@
+[
+  {
+    "id": "Q01",
+    "query": "Where is access outside the project root prevented?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/tool/PathGuard.java"
+    ]
+  },
+  {
+    "id": "Q02",
+    "query": "Where are dangerous shell commands rejected before execution?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/tool/CommandGuard.java"
+    ]
+  },
+  {
+    "id": "Q03",
+    "query": "Where is the maximum number of concurrently executing tools limited?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/tool/ToolRegistry.java"
+    ]
+  },
+  {
+    "id": "Q04",
+    "query": "Where are file reading, writing, shell, search, browser and memory tools registered?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/tool/ToolRegistry.java"
+    ]
+  },
+  {
+    "id": "Q05",
+    "query": "Where are independent multi-agent tasks assigned to workers and executed concurrently?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/agent/AgentOrchestrator.java"
+    ]
+  },
+  {
+    "id": "Q06",
+    "query": "Where is planner worker reviewer coordination implemented?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/agent/AgentOrchestrator.java"
+    ]
+  },
+  {
+    "id": "Q07",
+    "query": "Where are dependency-aware planned tasks executed in parallel?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/agent/PlanExecuteAgent.java"
+    ]
+  },
+  {
+    "id": "Q08",
+    "query": "Where is plan review handled before a generated execution plan runs?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/agent/PlanExecuteAgent.java"
+    ]
+  },
+  {
+    "id": "Q09",
+    "query": "Where are natural-language queries converted into embeddings for code search?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeRetriever.java"
+    ]
+  },
+  {
+    "id": "Q10",
+    "query": "Where are semantic and lexical code search results merged and reranked?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeRetriever.java"
+    ]
+  },
+  {
+    "id": "Q11",
+    "query": "Where does code search boost exact matches on method names or class names?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeRetriever.java"
+    ]
+  },
+  {
+    "id": "Q12",
+    "query": "Where is the number of returned chunks from the same file limited?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeRetriever.java"
+    ]
+  },
+  {
+    "id": "Q13",
+    "query": "Where is the repository traversed and source code split into chunks for indexing?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeIndex.java"
+    ]
+  },
+  {
+    "id": "Q14",
+    "query": "Where are code embeddings and symbol relationships persisted after indexing?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/rag/CodeIndex.java"
+    ]
+  },
+  {
+    "id": "Q15",
+    "query": "Where are short-term and long-term memories coordinated for the agent?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/memory/MemoryManager.java"
+    ]
+  },
+  {
+    "id": "Q16",
+    "query": "Where is project-specific long-term memory stored?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/memory/MemoryManager.java"
+    ]
+  },
+  {
+    "id": "Q17",
+    "query": "Where is cancellation represented so running work can observe that it should stop?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/runtime/CancellationToken.java"
+    ]
+  },
+  {
+    "id": "Q18",
+    "query": "Where is the abstraction that hides differences between LLM providers defined?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/llm/LlmClient.java"
+    ]
+  },
+  {
+    "id": "Q19",
+    "query": "Where are model capabilities such as tool support and context window exposed?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/llm/LlmClient.java"
+    ]
+  },
+  {
+    "id": "Q20",
+    "query": "Where are user, assistant and tool messages represented for LLM conversations?",
+    "expectedFiles": [
+      "src/main/java/com/mycliagent/llm/LlmClient.java"
+    ]
+  }
+]
